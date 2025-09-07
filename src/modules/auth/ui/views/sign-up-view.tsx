@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FaGithub, FaSignInAlt, FaSpinner, FaUserPlus } from "react-icons/fa";
+import { FaGithub, FaSpinner, FaUserPlus } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 
 import { useForm } from "react-hook-form";
@@ -219,7 +219,7 @@ export const SignUpView = () => {
                                         </>
                                     )}
                                 </Button>
-                                {/** Login with social */}
+                                {/** Sign up with socials */}
                                 <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
                                     <span className="bg-card text-muted-foreground relative z-10 px-2">
                                         Or continue with
@@ -259,13 +259,13 @@ export const SignUpView = () => {
                         </form>
                     </Form>
                     {/** Right panel (included logo and some introduction text) */}
-                    <div className="bg-radial from-green-500 to-green-800 relative hidden md:flex flex-col gap-y-4 items-center justify-center">
+                    <div className="bg-radial from-sidebar-accent to-sidebar relative hidden md:flex flex-col gap-y-4 items-center justify-center">
                         <Image
                             src="/logo.svg"
                             alt="Logo image"
-                            height={92}
                             width={92}
-                            className="h-[92px] w-[92px]"
+                            height={92}
+                            className="h-[92px] w-[92px] animate-ping"
                         />
                         <p className="text-2xl font-semibold text-white">
                             Meet.AI
