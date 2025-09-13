@@ -11,7 +11,7 @@ import {
 
 import { ErrorBoundary } from "react-error-boundary";
 
-const Page = () => {
+const Page = async () => {
     const queryClient = getQueryClient();
     queryClient.prefetchQuery(trpc.agents.getMany.queryOptions());
 
