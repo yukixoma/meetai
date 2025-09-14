@@ -10,7 +10,9 @@ import {
 } from "@/modules/agents/ui/views/agents-view";
 
 import { ErrorBoundary } from "react-error-boundary";
-import { AgentsListHeader } from "@/modules/agents/components/agents-list-header";
+
+import { AgentsListHeader } from "@/modules/agents/ui/components/agents-list-header";
+
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
