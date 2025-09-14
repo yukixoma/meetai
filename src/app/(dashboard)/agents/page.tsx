@@ -10,19 +10,36 @@ import {
 } from "@/modules/agents/ui/views/agents-view";
 
 import { ErrorBoundary } from "react-error-boundary";
+import { AgentsListHeader } from "@/modules/agents/components/agents-list-header";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 const Page = async () => {
+    /** Security checking */
+    const session = await auth.api.getSession({
+        headers: await headers(),
+    });
+
+    if (!session) {
+        redirect("/sign-in");
+    }
+
+    /** Return view if security checking passed*/
     const queryClient = getQueryClient();
-    queryClient.prefetchQuery(trpc.agents.getMany.queryOptions());
+    await queryClient.prefetchQuery(trpc.agents.getMany.queryOptions());
 
     return (
-        <HydrationBoundary state={dehydrate(queryClient)}>
-            <Suspense fallback={<AgentsViewLoadingState />}>
-                <ErrorBoundary fallback={<AgentsViewErrorState />}>
-                    <AgentsView />
-                </ErrorBoundary>
-            </Suspense>
-        </HydrationBoundary>
+        <>
+            <AgentsListHeader />
+            <HydrationBoundary state={dehydrate(queryClient)}>
+                <Suspense fallback={<AgentsViewLoadingState />}>
+                    <ErrorBoundary fallback={<AgentsViewErrorState />}>
+                        <AgentsView />
+                    </ErrorBoundary>
+                </Suspense>
+            </HydrationBoundary>
+        </>
     );
 };
 
