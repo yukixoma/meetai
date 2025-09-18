@@ -45,7 +45,7 @@ export const AgentIdView = ({ agentId }: { agentId: string }) => {
                     trpc.agents.getMany.queryOptions({})
                 );
                 // TODO: Invalidate free tier usage
-                router.push("/agents");
+                router.replace("/agents");
             },
             onError: ({ message }) => {
                 toast.error(message);
