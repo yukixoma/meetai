@@ -1,9 +1,7 @@
-import { and, count, desc, eq, getTableColumns, ilike, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, ilike, count } from "drizzle-orm";
 
 import { db } from "@/db";
-import { agents } from "@/db/schema";
-
-import { agentsInsertSchema, agentsUpdateSchema } from "../schemas";
+import { agents, meetings } from "@/db/schema";
 
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
@@ -16,6 +14,8 @@ import {
     MAX_PAGE_SIZE,
     MIN_PAGE_SIZE,
 } from "@/constants";
+
+import { agentsInsertSchema, agentsUpdateSchema } from "../schemas";
 
 export const agentsRouter = createTRPCRouter({
     create: protectedProcedure
@@ -82,15 +82,17 @@ export const agentsRouter = createTRPCRouter({
             const [existingAgent] = await db
                 .select({
                     ...getTableColumns(agents),
-                    meetingCount: sql<number>`5`,
+                    meetingCount: count(meetings.id),
                 })
                 .from(agents)
+                .leftJoin(meetings, eq(agents.id, meetings.agentId))
                 .where(
                     and(
                         eq(agents.id, input.id),
                         eq(agents.userId, ctx.auth.user.id)
                     )
-                );
+                )
+                .groupBy(agents.id);
 
             if (!existingAgent) {
                 throw new TRPCError({
@@ -115,34 +117,34 @@ export const agentsRouter = createTRPCRouter({
             })
         )
         .query(async ({ input: { page, pageSize, search }, ctx }) => {
-            const data = await db
+            const items = await db
                 .select({
                     ...getTableColumns(agents),
-                    meetingCount: sql<number>`5`,
+                    meetingCount: count(meetings.id),
                 })
                 .from(agents)
+                .leftJoin(meetings, eq(agents.id, meetings.agentId))
                 .where(
                     and(
                         eq(agents.userId, ctx.auth.user.id),
                         search ? ilike(agents.name, `%${search}%`) : undefined
                     )
                 )
+                .groupBy(agents.id)
                 .orderBy(desc(agents.createdAt), desc(agents.id))
                 .limit(pageSize)
                 .offset((page - 1) * pageSize);
 
-            const [total] = await db
-                .select({ count: count() })
-                .from(agents)
-                .where(
-                    and(
-                        eq(agents.userId, ctx.auth.user.id),
-                        search ? ilike(agents.name, `%${search}%`) : undefined
-                    )
-                );
+            const total = await db.$count(
+                agents,
+                and(
+                    eq(agents.userId, ctx.auth.user.id),
+                    search ? ilike(agents.name, `%${search}%`) : undefined
+                )
+            );
 
-            const totalPages = Math.ceil(total.count / pageSize);
+            const totalPages = Math.ceil(total / pageSize);
 
-            return { items: data, total: total.count, totalPages: totalPages };
+            return { items, total, totalPages };
         }),
 });
