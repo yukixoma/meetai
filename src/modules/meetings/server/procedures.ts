@@ -16,6 +16,7 @@ import {
 } from "@/constants";
 
 import { meetingsInsertSchema, meetingsUpdateSchema } from "../schemas";
+import { MeetingStatus } from "../types";
 
 export const meetingsRouter = createTRPCRouter({
     create: protectedProcedure
@@ -88,40 +89,55 @@ export const meetingsRouter = createTRPCRouter({
                     .max(MAX_PAGE_SIZE)
                     .default(DEFAULT_PAGE_SIZE),
                 search: z.string().nullish(),
+                agentId: z.string().nullish(),
+                status: z.enum(...[MeetingStatus]).nullish(),
             })
         )
-        .query(async ({ input: { page, pageSize, search }, ctx }) => {
-            const items = await db
-                .select({
-                    ...getTableColumns(meetings),
-                    agent: agents,
-                    duration:
-                        sql<number>`EXTRACT(EPOCH FROM (ended_at - started_at))`.as(
-                            "duration"
-                        ),
-                })
-                .from(meetings)
-                .innerJoin(agents, eq(meetings.agentId, agents.id))
-                .where(
+        .query(
+            async ({
+                input: { page, pageSize, search, agentId, status },
+                ctx,
+            }) => {
+                const items = await db
+                    .select({
+                        ...getTableColumns(meetings),
+                        agent: agents,
+                        duration:
+                            sql<number>`EXTRACT(EPOCH FROM (ended_at - started_at))`.as(
+                                "duration"
+                            ),
+                    })
+                    .from(meetings)
+                    .innerJoin(agents, eq(meetings.agentId, agents.id))
+                    .where(
+                        and(
+                            eq(meetings.userId, ctx.auth.user.id),
+                            search
+                                ? ilike(meetings.name, `%${search}%`)
+                                : undefined,
+                            status ? eq(meetings.status, status) : undefined,
+                            agentId ? eq(meetings.agentId, agentId) : undefined
+                        )
+                    )
+                    .orderBy(desc(meetings.createdAt), desc(meetings.id))
+                    .limit(pageSize)
+                    .offset((page - 1) * pageSize);
+
+                const total = await db.$count(
+                    meetings,
                     and(
                         eq(meetings.userId, ctx.auth.user.id),
-                        search ? ilike(meetings.name, `%${search}%`) : undefined
+                        search
+                            ? ilike(meetings.name, `%${search}%`)
+                            : undefined,
+                        status ? eq(meetings.status, status) : undefined,
+                        agentId ? eq(meetings.agentId, agentId) : undefined
                     )
-                )
-                .orderBy(desc(meetings.createdAt), desc(meetings.id))
-                .limit(pageSize)
-                .offset((page - 1) * pageSize);
+                );
 
-            const total = await db.$count(
-                meetings,
-                and(
-                    eq(meetings.userId, ctx.auth.user.id),
-                    search ? ilike(meetings.name, `%${search}%`) : undefined
-                )
-            );
+                const totalPages = Math.ceil(total / pageSize);
 
-            const totalPages = Math.ceil(total / pageSize);
-
-            return { items, total, totalPages };
-        }),
+                return { items, total, totalPages };
+            }
+        ),
 });

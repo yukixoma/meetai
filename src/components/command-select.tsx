@@ -13,12 +13,13 @@ import {
 
 import { cn } from "@/lib/utils";
 
-import { ChevronsUpDownIcon } from "lucide-react";
+import { ChevronsUpDownIcon, EraserIcon } from "lucide-react";
 
 interface CommandSelectProps {
     options: Array<{ id: string; value: string; children: ReactNode }>;
     onSelect: (value: string) => void;
-    onSearch: (value: string) => void;
+    onSearch?: (value: string) => void;
+    onClear?: () => void;
     value: string;
     placeholder?: string;
     isSearchable?: boolean;
@@ -27,6 +28,7 @@ interface CommandSelectProps {
 
 export const CommandSelect = ({
     options,
+    onClear,
     onSelect,
     onSearch,
     value,
@@ -36,6 +38,11 @@ export const CommandSelect = ({
 }: CommandSelectProps) => {
     const [open, setOpen] = useState(false);
     const seletectedOption = options.find((option) => option.value === value);
+
+    const handleOpenChange = (open: boolean) => {
+        onSearch?.("");
+        setOpen(open);
+    };
 
     return (
         <>
@@ -56,7 +63,7 @@ export const CommandSelect = ({
             <CommandResponsiveDialog
                 shouldFilter={!onSearch}
                 open={open}
-                onOpenChange={setOpen}
+                onOpenChange={handleOpenChange}
             >
                 <CommandInput
                     placeholder="Search..."
@@ -75,11 +82,29 @@ export const CommandSelect = ({
                                 onSelect(option.value);
                                 setOpen(false);
                             }}
+                            className={cn(
+                                option.value === value
+                                    ? " !bg-green-100"
+                                    : undefined,
+                                "hover:cursor-pointer"
+                            )}
                         >
                             {option.children}
                         </CommandItem>
                     ))}
                 </CommandList>
+                {seletectedOption && !!onClear && (
+                    <Button
+                        variant="destructive"
+                        type="button"
+                        onClick={() => {
+                            setOpen(false);
+                            onClear();
+                        }}
+                    >
+                        <EraserIcon /> Clear
+                    </Button>
+                )}
             </CommandResponsiveDialog>
         </>
     );
