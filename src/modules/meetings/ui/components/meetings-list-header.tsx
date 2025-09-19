@@ -1,13 +1,37 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-
-import { Plus } from "lucide-react";
-import { NewMeetingDialog } from "./new-meeting-dialog";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
+import { Plus, XIcon } from "lucide-react";
+
+import { NewMeetingDialog } from "./new-meeting-dialog";
+
+import { useMeetingsFilters } from "../../hooks/use-meetings-filters";
+
+import { MeetingsSearchFilter } from "./meetings-search-filter";
+import { MeetingsStatusFilters } from "./meetings-status-filters";
+import { MeetingsAgentsFilters } from "./meetings-agents-filters";
+
+import { DEFAULT_PAGE } from "@/constants";
+
 export const MeetingsListHeader = () => {
+    const [filters, setFilters] = useMeetingsFilters();
     const [isDialogOpen, setDialogOpen] = useState(false);
+
+    const isAnyFilterModified =
+        !!filters.search || !!filters.status || !!filters.agentId;
+
+    const onClearFilters = () => {
+        setFilters({
+            search: null,
+            status: null,
+            agentId: null,
+            page: DEFAULT_PAGE,
+        });
+    };
 
     return (
         <>
@@ -23,9 +47,24 @@ export const MeetingsListHeader = () => {
                         New Meeting
                     </Button>
                 </div>
-                <div className="flex items-center gap-x-2 p-1">
-                    TODO: Filters
-                </div>
+                <ScrollArea>
+                    <div className="flex items-center gap-x-2 p-1">
+                        <MeetingsSearchFilter />
+                        <MeetingsStatusFilters />
+                        <MeetingsAgentsFilters />
+                        {isAnyFilterModified && (
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={onClearFilters}
+                            >
+                                <XIcon />
+                                Clear
+                            </Button>
+                        )}
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                </ScrollArea>
             </div>
         </>
     );

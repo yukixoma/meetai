@@ -28,6 +28,7 @@ import { useState } from "react";
 import { CommandSelect } from "@/components/command-select";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { NewAgentDialog } from "@/modules/agents/ui/components/new-agent-dialog";
+import { LoaderIcon } from "lucide-react";
 
 interface MeetingFormProps {
     onSuccess?: (id?: string) => void;
@@ -201,6 +202,9 @@ export const MeetingForm = ({
                             </Button>
                         )}
                         <Button disabled={isPending} type="submit">
+                            {isPending && (
+                                <LoaderIcon className="animate-spin" />
+                            )}
                             {isEdit ? "Update" : "Create"}
                         </Button>
                     </div>

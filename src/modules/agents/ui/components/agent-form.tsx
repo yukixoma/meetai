@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -11,6 +13,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { z } from "zod";
 
+import { LoaderIcon } from "lucide-react";
+
 import {
     Form,
     FormControl,
@@ -19,12 +23,11 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { GeneratedAvatar } from "@/components/generated-avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
-import { toast } from "sonner";
+import { GeneratedAvatar } from "@/components/generated-avatar";
 
 interface AgentFormProps {
     onSuccess?: () => void;
@@ -154,6 +157,7 @@ export const AgentForm = ({
                         </Button>
                     )}
                     <Button disabled={isPending} type="submit">
+                        {isPending && <LoaderIcon className="animate-spin" />}
                         {isEdit ? "Update" : "Create"}
                     </Button>
                 </div>
