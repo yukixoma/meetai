@@ -65,11 +65,17 @@ export const AgentIdHeader = ({
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={onEdit}>
+                    <DropdownMenuItem
+                        className="hover:cursor-pointer focus:bg-gradient-to-r focus:from-amber-400 focus:to-amber-100"
+                        onClick={onEdit}
+                    >
                         <PencilIcon className="size-4 text-black" />
                         Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onRemove}>
+                    <DropdownMenuItem
+                        className="hover:cursor-pointer focus:bg-gradient-to-r focus:from-rose-400 focus:to-rose-100"
+                        onClick={onRemove}
+                    >
                         <TrashIcon className="size-4 text-black" />
                         Delete
                     </DropdownMenuItem>
