@@ -1,19 +1,9 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-
-import { auth } from "@/lib/auth";
-
 import { HomeView } from "@/modules/home/ui/views/home-view";
+import { authenticator } from "@/components/authenticator";
 
 const Page = async () => {
     /** Security checking */
-    const session = await auth.api.getSession({
-        headers: await headers(),
-    });
-
-    if (!session) {
-        redirect("/sign-in");
-    }
+    await authenticator();
 
     /** Return view if security checking passed*/
     return <HomeView />;

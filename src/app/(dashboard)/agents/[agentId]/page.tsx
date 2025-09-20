@@ -11,12 +11,16 @@ import {
     AgentIdViewErrorState,
     AgentIdViewLoadingState,
 } from "@/modules/agents/ui/views/agent-id-view";
+import { authenticator } from "@/components/authenticator";
 
-interface Props {
+interface AgentIdPageProps {
     params: Promise<{ agentId: string }>;
 }
 
-const Page = async ({ params }: Props) => {
+const Page = async ({ params }: AgentIdPageProps) => {
+    /** Security checking */
+    await authenticator();
+
     const { agentId } = await params;
 
     const queryClient = getQueryClient();
