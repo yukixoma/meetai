@@ -2,9 +2,7 @@ import { Suspense } from "react";
 
 import { ErrorBoundary } from "react-error-boundary";
 
-import { getQueryClient, trpc } from "@/trpc/server";
-
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 
 import type { SearchParams } from "nuqs";
 import { loadSearchParams } from "@/modules/meetings/params";
@@ -31,23 +29,18 @@ const Page = async ({ searchParams }: MeetingsPageProps) => {
     const params = await loadSearchParams(searchParams);
 
     /** Pre-fetch data at server */
-    const queryClient = getQueryClient();
-    await queryClient.prefetchQuery(
-        trpc.meetings.getMany.queryOptions({
-            ...params,
-        })
-    );
+    prefetch(trpc.meetings.getMany.queryOptions({ ...params }));
 
     return (
         <>
             <MeetingsListHeader />
-            <HydrationBoundary state={dehydrate(queryClient)}>
+            <HydrateClient>
                 <Suspense fallback={<MeetingsViewLoadingState />}>
                     <ErrorBoundary fallback={<MeetingsViewErrorState />}>
                         <MeetingsView />
                     </ErrorBoundary>
                 </Suspense>
-            </HydrationBoundary>
+            </HydrateClient>
         </>
     );
 };

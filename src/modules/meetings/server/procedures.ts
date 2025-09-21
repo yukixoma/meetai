@@ -128,6 +128,26 @@ export const meetingsRouter = createTRPCRouter({
     update: protectedProcedure
         .input(meetingsUpdateSchema)
         .mutation(async ({ input, ctx }) => {
+            /** Check if agent belongs to logged-in user */
+            if (!!input.agentId) {
+                const [agent] = await db
+                    .select({ agentId: agents.id })
+                    .from(agents)
+                    .where(
+                        and(
+                            eq(agents.id, input.agentId),
+                            eq(agents.userId, ctx.auth.user.id)
+                        )
+                    );
+
+                if (!agent) {
+                    throw new TRPCError({
+                        code: "UNAUTHORIZED",
+                        message: "Selected agent does not belong to this user",
+                    });
+                }
+            }
+
             const [updatedMeeting] = await db
                 .update(meetings)
                 .set(input)

@@ -1,5 +1,6 @@
 "use client";
 
+import { Bitcount_Single } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -20,7 +21,12 @@ import {
 } from "@/components/ui/sidebar";
 
 import { BotIcon, StarIcon, VideoIcon } from "lucide-react";
+
 import { DashboardUserButton } from "./dashboard-user-button";
+
+const bitcountSingle = Bitcount_Single({
+    subsets: ["latin"],
+});
 
 const firstSection = [
     {
@@ -58,7 +64,14 @@ export const DashboardSidebar = () => {
                         width={36}
                         className="animate-spin"
                     />
-                    <p className="text-2xl font-semibold">Meet.AI</p>
+                    <p
+                        className={cn(
+                            "text-2xl font-semibold",
+                            bitcountSingle.className
+                        )}
+                    >
+                        Meet.AI
+                    </p>
                 </Link>
             </SidebarHeader>
             <div className="px-4 py-2">

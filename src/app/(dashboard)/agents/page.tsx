@@ -2,8 +2,7 @@ import { Suspense } from "react";
 
 import { ErrorBoundary } from "react-error-boundary";
 
-import { getQueryClient, trpc } from "@/trpc/server";
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 
 import type { SearchParams } from "nuqs";
 import { loadSearchParams } from "@/modules/agents/params";
@@ -29,23 +28,18 @@ const Page = async ({ searchParams }: AgentsPageProps) => {
     const params = await loadSearchParams(searchParams);
 
     /** Pre-fetch data at server */
-    const queryClient = getQueryClient();
-    await queryClient.prefetchQuery(
-        trpc.agents.getMany.queryOptions({
-            ...params,
-        })
-    );
+    prefetch(trpc.agents.getMany.queryOptions({ ...params }));
 
     return (
         <>
             <AgentsListHeader />
-            <HydrationBoundary state={dehydrate(queryClient)}>
+            <HydrateClient>
                 <Suspense fallback={<AgentsViewLoadingState />}>
                     <ErrorBoundary fallback={<AgentsViewErrorState />}>
                         <AgentsView />
                     </ErrorBoundary>
                 </Suspense>
-            </HydrationBoundary>
+            </HydrateClient>
         </>
     );
 };
