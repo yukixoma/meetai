@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -18,14 +17,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FaGithub, FaSpinner, FaUserPlus } from "react-icons/fa";
-import { FcGoogle } from "react-icons/fc";
+
+import { FaSpinner, FaUserPlus } from "react-icons/fa";
 
 import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
+
 import { z } from "zod";
+
 import { OctagonAlertIcon } from "lucide-react";
+
 import { authClient } from "@/lib/auth-client";
+
+import { RightPanel } from "../modules/right-panel";
+import { SocialsAuthentication } from "../modules/socials-authentication";
 
 const formSchema = z
     .object({
@@ -60,23 +66,6 @@ export const SignUpView = () => {
                 onError: ({ error: { message } }) => {
                     setError(message);
                     setPending(false);
-                },
-            }
-        );
-    };
-
-    /** Sign up using social accounts */
-    const onSocial = (provider: "github" | "google") => {
-        authClient.signIn.social(
-            {
-                provider: provider,
-                callbackURL: "/",
-            },
-            {
-                onRequest: () => setPending(true),
-                onError: ({ error: { message } }) => {
-                    setPending(false);
-                    setError(message);
                 },
             }
         );
@@ -220,31 +209,9 @@ export const SignUpView = () => {
                                     )}
                                 </Button>
                                 {/** Sign up with socials */}
-                                <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
-                                    <span className="bg-card text-muted-foreground relative z-10 px-2">
-                                        Or continue with
-                                    </span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4 ">
-                                    <Button
-                                        disabled={pending}
-                                        variant="outline"
-                                        type="button"
-                                        className="w-full"
-                                        onClick={() => onSocial("google")}
-                                    >
-                                        <FcGoogle />
-                                    </Button>
-                                    <Button
-                                        disabled={pending}
-                                        variant="outline"
-                                        type="button"
-                                        className="w-full"
-                                        onClick={() => onSocial("github")}
-                                    >
-                                        <FaGithub />
-                                    </Button>
-                                </div>
+                                <SocialsAuthentication
+                                    {...{ pending, setPending, setError }}
+                                />
                                 {/** Sign in */}
                                 <div className="text-center text-sm">
                                     Already have an account?{" "}
@@ -259,18 +226,7 @@ export const SignUpView = () => {
                         </form>
                     </Form>
                     {/** Right panel (included logo and some introduction text) */}
-                    <div className="bg-radial from-sidebar-accent to-sidebar relative hidden md:flex flex-col gap-y-4 items-center justify-center">
-                        <Image
-                            src="/logo.svg"
-                            alt="Logo image"
-                            width={92}
-                            height={92}
-                            className="h-[92px] w-[92px] animate-ping"
-                        />
-                        <p className="text-2xl font-semibold text-white">
-                            Meet.AI
-                        </p>
-                    </div>
+                    <RightPanel />
                 </CardContent>
             </Card>
             {/** Terms of Use */}

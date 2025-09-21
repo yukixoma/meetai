@@ -13,7 +13,7 @@ import {
 
 import { cn } from "@/lib/utils";
 
-import { ChevronsUpDownIcon, EraserIcon } from "lucide-react";
+import { ChevronsUpDownIcon, XIcon } from "lucide-react";
 
 interface CommandSelectProps {
     options: Array<{ id: string; value: string; children: ReactNode }>;
@@ -22,7 +22,6 @@ interface CommandSelectProps {
     onClear?: () => void;
     value: string;
     placeholder?: string;
-    isSearchable?: boolean;
     className?: string;
 }
 
@@ -33,7 +32,6 @@ export const CommandSelect = ({
     onSearch,
     value,
     placeholder,
-    isSearchable,
     className,
 }: CommandSelectProps) => {
     const [open, setOpen] = useState(false);
@@ -102,7 +100,7 @@ export const CommandSelect = ({
                             onClear();
                         }}
                     >
-                        <EraserIcon /> Clear
+                        <XIcon /> Clear
                     </Button>
                 )}
             </CommandResponsiveDialog>

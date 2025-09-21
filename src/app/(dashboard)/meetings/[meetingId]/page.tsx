@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 
-import { getQueryClient, trpc } from "@/trpc/server";
-
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 
 import { ErrorBoundary } from "react-error-boundary";
 
@@ -23,22 +21,17 @@ const Page = async ({ params }: MeetingIdPageProps) => {
     await authenticator();
 
     const { meetingId } = await params;
-    const queryClient = getQueryClient();
-    await queryClient.prefetchQuery(
-        trpc.meetings.getOne.queryOptions({
-            id: meetingId,
-        })
-    );
+    prefetch(trpc.meetings.getOne.queryOptions({ id: meetingId }));
     //TOD: prefetch get transcript "meeting.getTranscript"
 
     return (
-        <HydrationBoundary state={dehydrate(queryClient)}>
+        <HydrateClient>
             <Suspense fallback={<MeetingIdViewLoadingState />}>
                 <ErrorBoundary fallback={<MeetingIdViewErrorState />}>
                     <MeetingIdView {...{ meetingId }} />
                 </ErrorBoundary>
             </Suspense>
-        </HydrationBoundary>
+        </HydrateClient>
     );
 };
 

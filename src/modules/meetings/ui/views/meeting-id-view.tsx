@@ -17,9 +17,16 @@ import {
 import { ErrorState } from "@/components/error-state";
 import { LoadingState } from "@/components/loading-state";
 
-import { MeetingIdHeader } from "../components/meeting-id-header";
 import { useConfirm } from "@/hooks/use-confirm";
+
+import { MeetingStatus } from "../../types";
+
+import { MeetingIdHeader } from "../components/meeting-id-header";
 import { UpdateMeetingDialog } from "../components/update-meeting-dialog";
+import { MeetingUpcomingState } from "../components/meeting-upcoming-state";
+import { MeetingActiveState } from "../components/meeting-active-state";
+import { MeetingCancelledState } from "../components/meeting-cancelled-state";
+import { MeetingProcessingState } from "../components/meeting-processing-state";
 
 export const MeetingIdView = ({ meetingId }: { meetingId: string }) => {
     const router = useRouter();
@@ -61,6 +68,21 @@ export const MeetingIdView = ({ meetingId }: { meetingId: string }) => {
         await removeMeeting.mutateAsync({ id: meetingId });
     };
 
+    const meetingStatusMap = {
+        [MeetingStatus.Upcoming]: (
+            <MeetingUpcomingState
+                {...{ meetingId: data.id, isCancelling: false }}
+                onCancelMeeting={() => {}}
+            />
+        ),
+        [MeetingStatus.Active]: (
+            <MeetingActiveState {...{ meetingId: data.id }} />
+        ),
+        [MeetingStatus.Completed]: <div />,
+        [MeetingStatus.Processing]: <MeetingProcessingState />,
+        [MeetingStatus.Cancelled]: <MeetingCancelledState />,
+    };
+
     return (
         <>
             <RemoveConfirmation />
@@ -75,6 +97,7 @@ export const MeetingIdView = ({ meetingId }: { meetingId: string }) => {
                     onEdit={() => setUpdateMeetingDialogOpen(true)}
                     onRemove={handleRemoveMeeting}
                 />
+                {meetingStatusMap[data.status]}
             </div>
         </>
     );
