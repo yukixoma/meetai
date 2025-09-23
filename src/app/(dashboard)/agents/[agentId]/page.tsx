@@ -11,11 +11,7 @@ import {
 } from "@/modules/agents/ui/views/agent-id-view";
 import { authenticator } from "@/components/authenticator";
 
-interface AgentIdPageProps {
-    params: Promise<{ agentId: string }>;
-}
-
-const Page = async ({ params }: AgentIdPageProps) => {
+const Page = async ({ params }: { params: Promise<{ agentId: string }> }) => {
     /** Security checking */
     await authenticator();
 
