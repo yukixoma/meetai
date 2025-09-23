@@ -12,11 +12,7 @@ import {
     MeetingIdViewLoadingState,
 } from "@/modules/meetings/ui/views/meeting-id-view";
 
-interface MeetingIdPageProps {
-    params: Promise<{ meetingId: string }>;
-}
-
-const Page = async ({ params }: MeetingIdPageProps) => {
+const Page = async ({ params }: { params: Promise<{ meetingId: string }> }) => {
     /** Security checking */
     await authenticator();
 
