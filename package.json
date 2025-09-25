@@ -4,17 +4,19 @@
     "private": true,
     "scripts": {
         "dev": "next dev --turbopack",
+        "dev:webhook": "ngrok http --url=reynaldo-lepidopterological-darrel.ngrok-free.dev 3000",
+        "dev:inngest": "npx inngest-cli@latest dev",
         "build": "next build --turbopack",
         "start": "next start",
         "lint": "eslint",
         "db:push": "npx drizzle-kit push",
-        "db:studio": "npx drizzle-kit studio",
-        "dev:webhook": "ngrok http --url=reynaldo-lepidopterological-darrel.ngrok-free.dev 3000"
+        "db:studio": "npx drizzle-kit studio"
     },
     "dependencies": {
         "@dicebear/collection": "^9.2.4",
         "@dicebear/core": "^9.2.4",
         "@hookform/resolvers": "^5.2.1",
+        "@inngest/agent-kit": "^0.12.0",
         "@neondatabase/serverless": "^1.0.1",
         "@radix-ui/react-accordion": "^1.2.12",
         "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -61,10 +63,12 @@
         "drizzle-orm": "^0.44.5",
         "embla-carousel-react": "^8.6.0",
         "humanize-duration": "^3.33.1",
+        "inngest": "^3.39.1",
         "input-otp": "^1.4.2",
+        "jsonl-parse-stringify": "^1.0.3",
         "lucide-react": "^0.541.0",
         "nanoid": "^5.1.5",
-        "next": "15.5.0",
+        "next": "^15.5.4",
         "next-themes": "^0.4.6",
         "nuqs": "^2.6.0",
         "react": "19.1.0",
@@ -79,7 +83,7 @@
         "sonner": "^2.0.7",
         "tailwind-merge": "^3.3.1",
         "vaul": "^1.1.2",
-        "zod": "^4.1.8"
+        "zod": "^4.1.11"
     },
     "devDependencies": {
         "@eslint/eslintrc": "^3",
