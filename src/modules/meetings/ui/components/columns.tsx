@@ -1,7 +1,5 @@
 "use client";
 
-import humanizeDuration from "humanize-duration";
-
 import { ColumnDef } from "@tanstack/react-table";
 
 import { MeetingGetMany } from "../../types";
@@ -19,16 +17,9 @@ import {
     LoaderIcon,
 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { cn, formatDuration } from "@/lib/utils";
 
 import { format } from "date-fns";
-
-const formatDuration = (seconds: number) =>
-    humanizeDuration(seconds * 1000, {
-        largest: 1,
-        round: true,
-        units: ["h", "m", "s"],
-    });
 
 const statusIconMap = {
     upcoming: <ClockArrowUpIcon className="animate-bounce" />,

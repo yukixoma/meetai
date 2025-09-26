@@ -27,6 +27,7 @@ import { MeetingUpcomingState } from "../components/meeting-upcoming-state";
 import { MeetingActiveState } from "../components/meeting-active-state";
 import { MeetingCancelledState } from "../components/meeting-cancelled-state";
 import { MeetingProcessingState } from "../components/meeting-processing-state";
+import { MeetingCompletedState } from "../components/meeting-completed-state";
 
 export const MeetingIdView = ({ meetingId }: { meetingId: string }) => {
     const router = useRouter();
@@ -78,7 +79,7 @@ export const MeetingIdView = ({ meetingId }: { meetingId: string }) => {
         [MeetingStatus.Active]: (
             <MeetingActiveState {...{ meetingId: data.id }} />
         ),
-        [MeetingStatus.Completed]: <div />,
+        [MeetingStatus.Completed]: <MeetingCompletedState {...{ data }} />,
         [MeetingStatus.Processing]: <MeetingProcessingState />,
         [MeetingStatus.Cancelled]: <MeetingCancelledState />,
     };

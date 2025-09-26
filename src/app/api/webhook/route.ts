@@ -131,7 +131,7 @@ const eventSessionStartedHandler = async (
     const call = streamVideo.video.call("default", meetingId);
     const realtimeClient = await streamVideo.video.connectOpenAi({
         call,
-        openAiApiKey: process.env.OPEN_AI_API_KEY!,
+        openAiApiKey: process.env.OPENAI_API_KEY!,
         agentUserId: existingAgent.id,
     });
 
