@@ -38,13 +38,11 @@ export const meetingsRouter = createTRPCRouter({
             },
         ]);
 
-        const expirationTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour
-        const issuedAt = Math.floor(Date.now() / 1000) - 60;
+        const issuedAt = Math.floor(Date.now() / 1000) - 5;
 
         const token = streamVideo.generateUserToken({
             user_id: id,
-            exp: expirationTime,
-            validity_in_seconds: issuedAt,
+            iat: issuedAt,
         });
 
         return token;
@@ -70,11 +68,11 @@ export const meetingsRouter = createTRPCRouter({
                     settings_override: {
                         transcription: {
                             language: "en",
-                            mode: "auto-on",
-                            closed_caption_mode: "auto-on",
+                            mode: "disabled",
+                            closed_caption_mode: "disabled",
                         },
                         recording: {
-                            mode: "auto-on",
+                            mode: "disabled",
                             quality: "1080p",
                         },
                     },

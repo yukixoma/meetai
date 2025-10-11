@@ -21,6 +21,7 @@ interface CallConnectProps {
     userId: string;
     userName: string;
     userImage: string;
+    agentId: string;
 }
 
 export const CallConnect = ({
@@ -29,6 +30,7 @@ export const CallConnect = ({
     userId,
     userName,
     userImage,
+    agentId,
 }: CallConnectProps) => {
     const trpc = useTRPC();
     const { mutateAsync: generateToken } = useMutation(
@@ -84,7 +86,7 @@ export const CallConnect = ({
     return (
         <StreamVideo {...{ client }}>
             <StreamCall {...{ call }}>
-                <CallUI {...{ meetingName }} />
+                <CallUI {...{ meetingId, meetingName, agentId }} />
             </StreamCall>
         </StreamVideo>
     );

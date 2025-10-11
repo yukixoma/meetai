@@ -9,9 +9,14 @@ import { CallConnect } from "./call-connect";
 interface CallProviderProps {
     meetingId: string;
     meetingName: string;
+    agentId: string;
 }
 
-export const CallProvider = ({ meetingId, meetingName }: CallProviderProps) => {
+export const CallProvider = ({
+    meetingId,
+    meetingName,
+    agentId,
+}: CallProviderProps) => {
     const { data, isPending } = authClient.useSession();
 
     if (!data || isPending) {
@@ -27,7 +32,7 @@ export const CallProvider = ({ meetingId, meetingName }: CallProviderProps) => {
     return (
         <div className="h-full">
             <CallConnect
-                {...{ meetingId, meetingName, userId, userName }}
+                {...{ meetingId, meetingName, userId, userName, agentId }}
                 userImage={
                     userImage ??
                     generateAvatarUri({

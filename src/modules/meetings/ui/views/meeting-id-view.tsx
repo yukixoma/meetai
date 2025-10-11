@@ -79,7 +79,9 @@ export const MeetingIdView = ({ meetingId }: { meetingId: string }) => {
         [MeetingStatus.Active]: (
             <MeetingActiveState {...{ meetingId: data.id }} />
         ),
-        [MeetingStatus.Completed]: <MeetingCompletedState {...{ data }} />,
+        [MeetingStatus.Completed]: (
+            <MeetingCompletedState {...{ meeting: data }} />
+        ),
         [MeetingStatus.Processing]: <MeetingProcessingState />,
         [MeetingStatus.Cancelled]: <MeetingCancelledState />,
     };

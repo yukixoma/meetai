@@ -21,8 +21,14 @@ import { format } from "date-fns";
 import { formatDuration } from "@/lib/utils";
 
 import Markdown from "react-markdown";
+import { Transcript } from "./transcript";
+import { ChatProvider } from "./chat-provider";
 
-export const MeetingCompletedState = ({ data }: { data: MeetingGetOne }) => {
+export const MeetingCompletedState = ({
+    meeting,
+}: {
+    meeting: MeetingGetOne;
+}) => {
     return (
         <div className="flex flex-col gap-y-4">
             <Tabs defaultValue="summary">
@@ -61,10 +67,21 @@ export const MeetingCompletedState = ({ data }: { data: MeetingGetOne }) => {
                         <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                 </div>
+                <TabsContent value="chat">
+                    <ChatProvider
+                        {...{
+                            meetingId: meeting.id,
+                            meetingName: meeting.name,
+                        }}
+                    />
+                </TabsContent>
+                <TabsContent value="transcript">
+                    <Transcript {...{ meetingId: meeting.id }} />
+                </TabsContent>
                 <TabsContent value="recording">
                     <div className="bg-white rounded-lg border px-4 py-5">
                         <video
-                            src={data.recordingUrl!}
+                            src={meeting.recordingUrl!}
                             className="w-full rounded-lg"
                             controls
                         />
@@ -74,23 +91,23 @@ export const MeetingCompletedState = ({ data }: { data: MeetingGetOne }) => {
                     <div className="bg-white rounded-lg border">
                         <div className="px-4 py-5 gap-y-5 flex flex-col col-span-5">
                             <h2 className="text-2xl font-medium capitalize">
-                                {data.name}
+                                {meeting.name}
                             </h2>
                             <div className="flex gap-x-2 items-center">
                                 <Link
-                                    href={`/agents/${data.agentId}`}
+                                    href={`/agents/${meeting.agentId}`}
                                     className="flex items-center gap-x-2 underline underline-offset-4 capitalize"
                                 >
                                     <GeneratedAvatar
                                         variant="botttsNeutral"
-                                        seed={data.agent.name}
+                                        seed={meeting.agent.name}
                                         className="size-5"
                                     />
-                                    {data.agent.name}
+                                    {meeting.agent.name}
                                 </Link>{" "}
                                 <p>
-                                    {data.startedAt
-                                        ? format(data.startedAt, "PPP")
+                                    {meeting.startedAt
+                                        ? format(meeting.startedAt, "PPP")
                                         : ""}
                                 </p>
                             </div>
@@ -103,8 +120,8 @@ export const MeetingCompletedState = ({ data }: { data: MeetingGetOne }) => {
                                 className="flex items-center gap-x-2 [&>svg]:size-4"
                             >
                                 <ClockFadingIcon className="text-blue-700" />
-                                {data.duration
-                                    ? formatDuration(data.duration)
+                                {meeting.duration
+                                    ? formatDuration(meeting.duration)
                                     : " No duration"}
                             </Badge>
                             <div>
@@ -169,7 +186,7 @@ export const MeetingCompletedState = ({ data }: { data: MeetingGetOne }) => {
                                         ),
                                     }}
                                 >
-                                    {data.summary}
+                                    {meeting.summary}
                                 </Markdown>
                             </div>
                         </div>

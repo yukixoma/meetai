@@ -16,6 +16,10 @@ import {
 
 import { inngest } from "@/inngest/client";
 
+import puppeteer, { Browser } from "puppeteer";
+
+let browser: Browser;
+
 const vefifySignatureWithSDK = (body: string, signature: string): boolean => {
     return streamVideo.verifyWebhook(body, signature);
 };
@@ -53,25 +57,27 @@ export const POST = async (req: NextRequest) => {
         error: undefined,
         status: undefined,
     };
+
     switch (eventType) {
         case "call.session_started":
             result = await eventSessionStartedHandler(payload);
             break;
         case "call.session_participant_left":
-            result = await eventSessionParticipantLeftHandler(payload);
+            //     result = await eventSessionParticipantLeftHandler(payload);
             break;
-        case "call.session_ended":
-            result = await eventSessionEndedHandler(payload);
-            break;
-        case "call.transcription_ready":
-            result = await eventTranscriptionReadyHandler(payload);
-            break;
-        case "call.recording_ready":
-            await eventRecordingReadyHandler(payload);
-            break;
+        // case "call.session_ended":
+        //     result = await eventSessionEndedHandler(payload);
+        //     break;
+        // case "call.transcription_ready":
+        //     result = await eventTranscriptionReadyHandler(payload);
+        //     break;
+        // case "call.recording_ready":
+        //     await eventRecordingReadyHandler(payload);
+        //     break;
         default:
             break;
     }
+
     if (result.error) {
         return NextResponse.json(
             { error: result.error },
@@ -85,7 +91,6 @@ export const POST = async (req: NextRequest) => {
 const eventSessionStartedHandler = async (
     payload: unknown
 ): Promise<{ error?: string; status?: number }> => {
-    console.log("call started");
     const event = payload as CallSessionStartedEvent;
 
     const meetingId = event.call.custom?.meetingId;
@@ -111,13 +116,13 @@ const eventSessionStartedHandler = async (
         return Promise.resolve({ error: "Meeting not found", status: 404 });
     }
 
-    await db
-        .update(meetings)
-        .set({
-            status: "active",
-            startedAt: new Date(),
-        })
-        .where(eq(meetings.id, existingMeeting.id));
+    // await db
+    //     .update(meetings)
+    //     .set({
+    //         status: "active",
+    //         startedAt: new Date(),
+    //     })
+    //     .where(eq(meetings.id, existingMeeting.id));
 
     const [existingAgent] = await db
         .select()
@@ -128,16 +133,27 @@ const eventSessionStartedHandler = async (
         return Promise.resolve({ error: "Agent not found", status: 404 });
     }
 
-    const call = streamVideo.video.call("default", meetingId);
-    const realtimeClient = await streamVideo.video.connectOpenAi({
-        call,
-        openAiApiKey: process.env.OPENAI_API_KEY!,
-        agentUserId: existingAgent.id,
+    browser = await puppeteer.launch({
+        headless: false,
     });
+    const page = await browser.newPage();
+    await page.goto(
+        `${process.env.NEXT_PUBLIC_APP_URL!}/api/call/agent/${
+            existingAgent.id
+        }/${existingMeeting.id}`
+    );
+    await page.click("#join-call");
 
-    realtimeClient.updateSession({
-        instructions: existingAgent.instructions,
-    });
+    // const call = streamVideo.video.call("default", meetingId);
+    // const realtimeClient = await streamVideo.video.connectOpenAi({
+    //     call,
+    //     openAiApiKey: process.env.OPENAI_API_KEY!,
+    //     agentUserId: existingAgent.id,
+    // });
+
+    // realtimeClient.updateSession({
+    //     instructions: existingAgent.instructions,
+    // });
 
     return Promise.resolve({ error: undefined, status: undefined });
 };
@@ -155,6 +171,8 @@ const eventSessionParticipantLeftHandler = async (
 
     const call = streamVideo.video.call("default", meetingId);
     await call.end();
+
+    // await browser.close();
 
     return Promise.resolve({ error: undefined, status: undefined });
 };
@@ -198,13 +216,13 @@ const eventTranscriptionReadyHandler = async (
         return Promise.resolve({ error: "Meeting not found", status: 400 });
     }
 
-    await inngest.send({
-        name: "meetings/processing",
-        data: {
-            meetingId: updatedMeeting.id,
-            transcriptUrl: updatedMeeting.transcriptUrl,
-        },
-    });
+    // await inngest.send({
+    //     name: "meetings/processing",
+    //     data: {
+    //         meetingId: updatedMeeting.id,
+    //         transcriptUrl: updatedMeeting.transcriptUrl,
+    //     },
+    // });
 
     return Promise.resolve({ error: undefined, status: undefined });
 };

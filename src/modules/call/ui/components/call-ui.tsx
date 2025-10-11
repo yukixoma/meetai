@@ -6,11 +6,22 @@ import { CallLobby } from "./call-lobby";
 import { CallActive } from "./call-active";
 import { CallEnded } from "./call-ended";
 
-export const CallUI = ({ meetingName }: { meetingName: string }) => {
+interface CallUIProps {
+    meetingId: string;
+    meetingName: string;
+    agentId: string;
+}
+
+export const CallUI = ({ meetingId, meetingName, agentId }: CallUIProps) => {
     const call = useCall();
     const [show, setShow] = useState<"lobby" | "call" | "ended">("lobby");
 
     const handleJoin = async () => {
+        // window.open(
+        //     `http://localhost:3000/api/call/agent/${agentId}/${meetingId}`,
+        //     "_blank"
+        // );
+
         if (!call) return;
 
         await call.join();
@@ -20,6 +31,10 @@ export const CallUI = ({ meetingName }: { meetingName: string }) => {
 
     const handleLeave = async () => {
         if (!call) return;
+
+        await call.sendCustomEvent({
+            type: "end_meeting",
+        });
 
         await call.endCall();
 

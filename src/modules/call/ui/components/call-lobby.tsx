@@ -16,13 +16,16 @@ import {
     useCallStateHooks,
     VideoPreview,
 } from "@stream-io/video-react-sdk";
+
 import "@stream-io/video-react-sdk/dist/css/styles.css";
 
 export const CallLobby = ({ onJoin }: { onJoin: () => void }) => {
     const { useCameraState, useMicrophoneState } = useCallStateHooks();
 
     const { hasBrowserPermission: hasMicPermission } = useCameraState();
+
     const { hasBrowserPermission: hasCameraPermission } = useMicrophoneState();
+
     const hasBrowserPermission = hasMicPermission && hasCameraPermission;
 
     return (
