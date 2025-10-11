@@ -63,7 +63,7 @@ export const ChatUI = ({
         return (
             <LoadingState
                 title="Loading chat"
-                description="This may tale a few seconds"
+                description="This may take a few seconds"
             />
         );
     }

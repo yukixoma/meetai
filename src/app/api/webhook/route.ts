@@ -272,7 +272,7 @@ const eventMessageNewHandler = async (
         });
     }
 
-    if (userId !== existingAgent.userId) {
+    if (userId !== existingAgent.id) {
         const instructions = `
             You are an AI assistant helping the user revisit a recently completed meeting.
             Below is a summary of the meeting, generated from the transcript:
@@ -332,9 +332,9 @@ const eventMessageNewHandler = async (
             }),
         };
 
-        streamChat.upsertUser(agent);
+        await streamChat.upsertUser(agent);
 
-        channel.sendMessage({
+        await channel.sendMessage({
             text: GPTResponseText,
             user: agent,
         });
