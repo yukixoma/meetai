@@ -20,7 +20,7 @@ import { streamChat } from "@/lib/stream-chat";
 
 import { ChatCompletionMessageParam } from "openai/resources/index.mjs";
 import { openAIClient } from "@/lib/open-ai";
-import { role } from "@stream-io/video-react-sdk";
+
 import { generateAvatarUri } from "@/lib/avatar";
 
 const vefifySignatureWithSDK = (body: string, signature: string): boolean => {
