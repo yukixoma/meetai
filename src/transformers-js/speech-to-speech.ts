@@ -23,7 +23,8 @@ import {
  * Singleton class to avoid multiple creating which will lead to memory leak
  */
 export class SpeechToSpeech {
-    private static instance: SpeechToSpeech;
+    private static instance: null | SpeechToSpeech;
+    private isWebGPUSupport = false;
 
     /** Speech to text */
     private speechToTextGenerator: ASRPipeline | null = null;
@@ -40,17 +41,32 @@ export class SpeechToSpeech {
 
     /** Text to speech */
     private textToSpeechGenerator: KokoroTTS | null = null;
+    // private textToSpeechGenerator: TextToAudioPipeline | null = null;
     private textToSpeechModelLoadingStatus: ProgressInfo | null = null;
     private textToSpeechModel: string = LOCAL_AI_TTS_MODEL_ID;
     private textToSpeechModelSettings: ModelSettings = LOCAL_AI_TTS_SETTINGS;
 
-    constructor() {
-        if (!SpeechToSpeech.instance) {
-            SpeechToSpeech.instance = this;
+    private constructor() {}
+
+    /** Satisfy "no constructor return" singleton pattern */
+    public static getInstance = async () => {
+        if (!this.instance) {
+            this.instance = new SpeechToSpeech();
+        }
+        this.instance.isWebGPUSupport = await this.checkWebGPUSupport();
+
+        return this.instance;
+    };
+
+    /** Check for webgpu support */
+    public static checkWebGPUSupport = async () => {
+        if (!navigator.gpu) {
+            return false;
         }
 
-        return SpeechToSpeech.instance;
-    }
+        const gpuAdapter = await navigator.gpu.requestAdapter();
+        return !!gpuAdapter;
+    };
 
     /** Progress callback */
     public setProgressCallback = (
@@ -86,8 +102,8 @@ export class SpeechToSpeech {
         }
     };
 
-    /** Reset model */
-    public resetModel = async (modelType: ModelType) => {
+    /** Dispose model */
+    public disposeModel = async (modelType: ModelType) => {
         switch (modelType) {
             case "STT":
                 if (this.speechToTextGenerator instanceof ASRPipeline) {
@@ -104,28 +120,31 @@ export class SpeechToSpeech {
                 break;
 
             case "TTS":
+                if (this.textToSpeechGenerator instanceof KokoroTTS) {
+                    await this.textToSpeechGenerator.model.dispose();
+                }
                 this.textToSpeechGenerator = null;
                 break;
 
             case "STS":
-                if (this.speechToTextGenerator instanceof ASRPipeline) {
-                    await this.speechToTextGenerator.dispose();
-                }
-                this.speechToTextGenerator = null;
-
-                if (this.textGenerator instanceof TextGenerationPipeline) {
-                    await this.textGenerator.dispose();
-                }
-                this.textGenerator = null;
-
-                this.textToSpeechGenerator = null;
+                await this.disposeModel("STT");
+                await this.disposeModel("TG");
+                await this.disposeModel("TTS");
+                SpeechToSpeech.instance = null;
                 break;
         }
     };
 
     /** Speech to text */
     public setSpeechToTextGenerator = async () => {
-        await this.resetModel("STT");
+        await this.disposeModel("STT");
+
+        if (
+            this.speechToTextModelSettings.device === "webgpu" &&
+            !this.isWebGPUSupport
+        ) {
+            this.speechToTextModelSettings.device = "wasm";
+        }
 
         this.speechToTextGenerator = await pipeline(
             "automatic-speech-recognition",
@@ -176,9 +195,18 @@ export class SpeechToSpeech {
 
     /** Text generator */
     private setTextGenerator = async () => {
+        await this.disposeModel("TG");
+
+        if (
+            this.textGeneratorModelSettings.device === "webgpu" &&
+            !this.isWebGPUSupport
+        ) {
+            this.textGeneratorModelSettings.device = "wasm";
+        }
+
         this.textGenerator = await pipeline(
             "text-generation",
-            LOCAL_AI_TEXT_GENERATOR_MODEL_ID,
+            this.textGeneratorModel,
             {
                 ...this.textGeneratorModelSettings,
                 progress_callback: (info) => {
@@ -225,11 +253,19 @@ export class SpeechToSpeech {
 
     /** Text to speech */
     private setTextToSpeechGenerator = async () => {
+        await this.disposeModel("TTS");
+
+        if (
+            this.textToSpeechModelSettings.device === "webgpu" &&
+            !this.isWebGPUSupport
+        ) {
+            this.textToSpeechModelSettings.device = "wasm";
+        }
+
         this.textToSpeechGenerator = await KokoroTTS.from_pretrained(
-            LOCAL_AI_TTS_MODEL_ID,
+            this.textToSpeechModel,
             {
-                dtype: "fp32",
-                device: "webgpu",
+                ...this.textToSpeechModelSettings,
                 progress_callback: (info) => {
                     this.textToSpeechModelLoadingStatus = info;
                     this.textToSpeechModelSettings.progress_callback?.(info);

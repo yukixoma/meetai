@@ -1,8 +1,8 @@
 import { env, ProgressInfo } from "@huggingface/transformers";
 
 env.allowLocalModels = true;
-env.allowRemoteModels = false;
-env.localModelPath = "http://localhost:3001/models";
+env.allowRemoteModels = true;
+env.localModelPath = "http://localhost:3001/models/";
 
 export interface ModelSettings {
     dtype?: "fp32" | "fp16" | "q4";
