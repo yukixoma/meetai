@@ -1,172 +1,246 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { useMicVAD } from "@ricky0123/vad-react";
+import { Bitcount_Single } from "next/font/google";
 
-import { TalkWithAiMessage } from "@/workers/talk-with-ai-worker";
-import { ModelType } from "@/transformers-js/configs";
 import { Progress } from "@/components/ui/progress";
-import { ProgressInfo } from "@huggingface/transformers";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { LoaderCircle } from "lucide-react";
-import { HomeMicVad } from "../components/home-mic-vad";
 
-interface ModelLoadingProgress {
-    status: ProgressInfo["status"];
-    progress: number;
-    info: string;
-}
+import { LoaderCircle } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+import { ProgressInfo } from "@huggingface/transformers";
+
+import { ModelType } from "@/transformers-js/configs";
+
+import { InferenceMessage, Message } from "@/workers/talk-with-ai-worker";
+
+import { HomeMicVad } from "../components/home-mic-vad";
+import { HomeAudioVisualizer } from "../components/home-audio-visualizer";
+
+const bitcountSingle = Bitcount_Single({
+    subsets: ["latin"],
+});
 
 export const HomeView = () => {
     const talkWithAIWorker = useRef<Worker>(null);
-    const [status, setStatus] = useState<TalkWithAiMessage["status"]>("init");
-    const [modelLoadingProgress, setModelLoadingProgress] = useState<
-        Partial<ModelLoadingProgress>
-    >({});
-    const streamingBlob: Blob[] = [];
 
-    useEffect(() => {
-        talkWithAIWorker.current ??= new Worker(
-            new URL("@/workers/talk-with-ai-worker.ts", import.meta.url),
-            {
-                type: "module",
-            }
-        );
+    const [inferenceStatus, setInferenceStatus] =
+        useState<InferenceMessage["status"]>("initiate");
 
-        talkWithAIWorker.current?.addEventListener(
-            "message",
-            onMessageReceived
-        );
+    const [modelStatus, setModelStatus] = useState<ProgressInfo>({
+        status: "initiate",
+        file: "",
+        name: "",
+    });
 
-        return () => {
-            talkWithAIWorker.current?.removeEventListener(
-                "message",
-                onMessageReceived
-            );
-            talkWithAIWorker.current = null;
-        };
-    }, [talkWithAIWorker]);
+    const audioBlobArrayRef = useRef<Blob[]>([]);
+    const [audioBlob, setAudioBlob] = useState<{
+        part: number;
+        data: Blob;
+    }>();
 
-    const postMessage = (message: TalkWithAiMessage) => {
-        talkWithAIWorker.current?.postMessage(message);
-    };
+    const onMessage = useEffectEvent((e: MessageEvent) => {
+        const message = e.data as Message;
 
-    const onMessageReceived = (e: MessageEvent) => {
-        const receivedMessage = e.data as TalkWithAiMessage;
-
-        switch (receivedMessage.type) {
+        switch (message.type) {
             case "INIT":
-                onModelLoadingInfoReceived(
-                    receivedMessage.data as ProgressInfo
-                );
+                setModelStatus(message.data as ProgressInfo);
                 break;
 
             case "STT":
-                console.log("STT: ", receivedMessage.data);
+                console.log("STT: ", message);
                 break;
 
-            case "TTT":
-                console.log("TTT: ", receivedMessage.data);
+            case "TG":
+                console.log("TG: ", message.data);
                 break;
 
             case "TTS":
-                console.log("TTS: ", receivedMessage.data);
+                console.log("TTS: ", message);
+                if (message.status === "streaming") {
+                    const { part, data } = message.data as {
+                        part: number;
+                        data: ArrayBuffer;
+                    };
+                    audioBlobArrayRef.current[part] = new Blob([data], {
+                        type: "audio/wav",
+                    });
+                    if (part === 0) {
+                        getAudioBlob(0);
+                    }
+                }
                 break;
 
             case "STS":
-                console.log("STS: ", receivedMessage.data);
-
-                setStatus("speaking");
-
-                if (receivedMessage.status !== "ended") {
-                    streamingBlob.push(receivedMessage.data as Blob);
-                }
-                if (receivedMessage.status === "start") {
-                    playTTSStreamAudio();
-                }
+                console.log("STS: ", message);
+                setInferenceStatus(message.status);
                 break;
         }
+    });
+
+    useEffect(() => {
+        if (talkWithAIWorker.current === null) {
+            talkWithAIWorker.current = new Worker(
+                new URL("@/workers/talk-with-ai-worker.ts", import.meta.url),
+                {
+                    type: "module",
+                }
+            );
+
+            talkWithAIWorker.current.onmessage = onMessage;
+        }
+
+        return () => {
+            postMessage({ type: "DISPOSE", status: "disposed" });
+            talkWithAIWorker.current?.terminate();
+            talkWithAIWorker.current = null;
+        };
+    }, []);
+
+    const postMessage = (message: Message) => {
+        talkWithAIWorker.current?.postMessage(message);
     };
 
     const onInitModel = (modelType: ModelType) => {
-        setStatus("loading");
         postMessage({
             type: "INIT",
-            status: "init",
+            status: "initiate",
             data: modelType,
         });
     };
 
-    const onModelLoadingInfoReceived = (info: ProgressInfo) => {
-        console.log(info);
-
-        const loadingProgress = {
-            status: info.status,
-            progress: modelLoadingProgress.progress,
-            info: "",
-        };
-
-        if (info.status === "progress") {
-            loadingProgress.progress = info.progress;
-        }
-
-        if (info.status === "ready") {
-            loadingProgress.info = `${info.model} is ready.`;
-            if (info.model === "STT") {
-                setStatus("ready");
-            }
-        } else {
-            loadingProgress.info = `${info.status.toUpperCase()}: ${
-                info.name
-            }/${info.file}.`;
-        }
-
-        setModelLoadingProgress(loadingProgress);
-    };
-
-    const playTTSStreamAudio = (): void => {
-        const blob = streamingBlob.shift();
+    const getAudioBlob = (part: number) => {
+        const blob = audioBlobArrayRef.current[part];
 
         if (blob) {
-            const audio = new Audio();
-            audio.src = URL.createObjectURL(blob);
-            audio.onended = () => {
-                playTTSStreamAudio();
-            };
-            audio.play();
+            setAudioBlob({
+                part: part,
+                data: blob,
+            });
         } else {
-            setStatus("ready");
+            audioBlobArrayRef.current = [];
+            setAudioBlob(undefined);
         }
     };
 
-    const statusMap = (status: TalkWithAiMessage["status"]) => {
-        switch (status) {
-            case "init":
+    const modelStatusMapRender = () => {
+        switch (modelStatus.status) {
+            case "initiate":
                 return (
-                    <Button onClick={() => onInitModel("STS")}>
-                        Load model
-                    </Button>
+                    <>
+                        <div
+                            className={cn("text-2xl", bitcountSingle.className)}
+                        >
+                            Welcome to Talk.AI
+                        </div>
+                        <div className="flex flex-col h-20 items-center justify-center">
+                            Click load model button to begin
+                        </div>
+                        <Button onClick={() => onInitModel("STS")}>
+                            Load model
+                        </Button>
+                    </>
                 );
 
-            case "loading":
+            case "download":
                 return (
-                    <Button disabled={true}>
-                        <LoaderCircle className="animate-spin" /> Loading model
-                    </Button>
+                    <>
+                        <div
+                            className={cn("text-2xl", bitcountSingle.className)}
+                        >
+                            Downloading model
+                        </div>
+                        <div className="flex flex-col h-20 items-center justify-center">
+                            <div>
+                                {`Downloading ${modelStatus.name}/${modelStatus.file}`}
+                            </div>
+                            <Button disabled={true}>
+                                <LoaderCircle className="animate-spin" />
+                                Downloading model
+                            </Button>
+                        </div>
+                    </>
                 );
 
-            default:
+            case "progress":
                 return (
-                    <HomeMicVad
-                        {...{
-                            status,
-                            setStatus,
-                            postMessage,
-                        }}
-                    />
+                    <>
+                        <div
+                            className={cn("text-2xl", bitcountSingle.className)}
+                        >
+                            Loading model
+                        </div>
+                        <div className="flex flex-col h-20 items-center justify-center">
+                            <div>
+                                {`Loading ${modelStatus.name}/${modelStatus.file}`}
+                            </div>
+                            <div>{`${modelStatus.progress.toFixed(2)}%`}</div>
+                            <Progress {...{ value: modelStatus.progress }} />
+                        </div>
+                        <Button disabled={true} className="bg-amber-300">
+                            <LoaderCircle className="animate-spin" />
+                            Loading model
+                        </Button>
+                    </>
                 );
+
+            case "done":
+                return (
+                    <>
+                        <div
+                            className={cn("text-2xl", bitcountSingle.className)}
+                        >
+                            Loaded model
+                        </div>
+                        <div className="flex flex-col h-20 items-center justify-center">
+                            <div>
+                                {`Loaded ${modelStatus.name}/${modelStatus.file}`}
+                            </div>
+                        </div>
+                        <Button disabled={true} className="bg-cyan-300">
+                            <LoaderCircle className="animate-spin" />
+                            Waiting for another models
+                        </Button>
+                    </>
+                );
+
+            case "ready":
+                if (
+                    modelStatus.model === "STS" ||
+                    modelStatus.model === "VAD"
+                ) {
+                    return (
+                        <>
+                            <div
+                                className={cn(
+                                    "text-2xl",
+                                    bitcountSingle.className
+                                )}
+                            >
+                                Talk.AI is ready
+                            </div>
+                            <HomeAudioVisualizer
+                                {...{
+                                    inferenceStatus,
+                                    audioBlob,
+                                    getAudioBlob,
+                                }}
+                            />
+                            <HomeMicVad
+                                {...{
+                                    modelStatus,
+                                    setModelStatus,
+                                    inferenceStatus,
+                                    setInferenceStatus,
+                                    postMessage,
+                                }}
+                            />
+                        </>
+                    );
+                }
         }
     };
 
@@ -174,18 +248,7 @@ export const HomeView = () => {
         <div className="flex-1 py-4 px-4 md:px-8 flex flex-col gap-y-4">
             <div className="bg-white rounded-lg px-4 py-5 flex flex-col gap-y-8 items-center justify-center">
                 <div className="flex flex-col w-2xl gap-y-3 items-center justify-center">
-                    <div>{modelLoadingProgress.info}</div>
-                    <div
-                        className={cn(
-                            modelLoadingProgress.status === "progress"
-                                ? "visible"
-                                : "invisible"
-                        )}
-                    >
-                        {modelLoadingProgress.progress?.toFixed(2) + "%"}
-                    </div>
-                    <Progress value={modelLoadingProgress.progress} />
-                    {statusMap(status)}
+                    {modelStatusMapRender()}
                 </div>
             </div>
         </div>
