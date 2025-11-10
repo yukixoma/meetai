@@ -1,6 +1,8 @@
 import {
     AudioPipelineInputs,
+    AutomaticSpeechRecognitionConfig,
     ProgressInfo,
+    RawAudio,
     TextStreamer,
 } from "@huggingface/transformers";
 
@@ -10,53 +12,71 @@ import type { ModelType } from "@/transformers-js/configs";
 
 import { SpeechToSpeech } from "@/transformers-js/speech-to-speech";
 
-export interface TalkWithAiMessage {
-    type: "INIT" | "STT" | "TTT" | "TTS" | "STS";
+export interface InitMessage {
+    type: "INIT";
+    status: ProgressInfo["status"];
+    data: ModelType | ProgressInfo;
+}
+
+export interface InferenceMessage {
+    type: "STT" | "TG" | "TTS" | "STS";
     status:
-        | "init"
-        | "start"
-        | "loading"
-        | "listening"
+        | "initiate"
         | "inferencing"
-        | "speaking"
-        | "ended"
-        | "ready";
+        | "streaming"
+        | "done"
+        | "ready"
+        | "error";
     data: unknown;
 }
 
-self.onmessage = (event) => {
-    const payload = event.data as TalkWithAiMessage;
+export interface DisposeMessage {
+    type: "DISPOSE";
+    status: "disposed";
+    data?: unknown;
+}
+
+export type Message = InitMessage | InferenceMessage | DisposeMessage;
+
+self.onmessage = async (event) => {
+    const payload = event.data as Message;
     switch (payload.type) {
         case "INIT":
-            initModel(payload.data as ModelType);
-            break;
-        case "STT":
-            speechToText(payload.data as Float32Array);
+            await initModel(payload.data as ModelType);
             break;
 
-        case "TTT":
-            textGeneration(payload.data as string);
+        case "STT":
+            await speechToText(payload.data as Float32Array);
+            break;
+
+        case "TG":
+            await textGenerator(payload.data as string);
             break;
 
         case "TTS":
-            textToSpeech(payload.data as string);
+            await textToSpeech(payload.data as string);
             break;
 
         case "STS":
-            speechToSpeech(payload.data as Float32Array);
+            await speechToSpeech(payload.data as Float32Array);
+            break;
+
+        case "DISPOSE":
+            await dispose(payload.data as ModelType);
             break;
     }
 };
 
-const sendMessage = (messages: TalkWithAiMessage) => {
-    self.postMessage(messages);
+const postMessage = (messages: Message, options?: WindowPostMessageOptions) => {
+    self.postMessage(messages, options);
 };
 
 const initModel = async (modelType: ModelType) => {
-    const sts = new SpeechToSpeech();
+    const sts = await SpeechToSpeech.getInstance();
     sts.setProgressCallback(modelType, (info) => {
-        sendMessage({
+        postMessage({
             type: "INIT",
+            status: info.status,
             data: info,
         });
     });
@@ -77,148 +97,288 @@ const initModel = async (modelType: ModelType) => {
             await sts.getSpeechToTextGenerator();
             await sts.getTextGenerator();
             await sts.getTextToSpeechGenerator();
-            sendMessage({
+            postMessage({
                 type: "INIT",
                 status: "ready",
-                data: { status: "ready", model: "STT" },
+                data: { model: "STS", status: "ready", task: "model init" },
             });
             break;
     }
 };
 
-const speechToText = async (audioInput: AudioPipelineInputs) => {
-    const STS = new SpeechToSpeech();
+const speechToText = async (
+    audioInput: AudioPipelineInputs,
+    options?: Partial<AutomaticSpeechRecognitionConfig>
+) => {
+    const STS = await SpeechToSpeech.getInstance();
     const STT = await STS.getSpeechToTextGenerator();
 
     if (STT) {
-        const text = await STT(audioInput, { task: "transcribe" });
-        sendMessage({
+        const text = await STT(audioInput, options);
+        postMessage({
             type: "STT",
-            status: "ended",
+            status: "ready",
             data: JSON.stringify(text),
         });
+
+        return JSON.stringify(text);
     }
+
+    if (STS.getSpeechToTextModelLoadingStatus()?.status !== "ready") {
+        postMessage({
+            type: "STT",
+            status: "error",
+            data: "STT model not ready",
+        });
+
+        return Promise.reject("STT model not ready");
+    }
+
+    postMessage({
+        type: "STT",
+        status: "error",
+        data: "STT model error",
+    });
+
+    return Promise.reject("STT model error");
 };
 
-const textGeneration = async (prompt: string) => {
-    const STS = new SpeechToSpeech();
+const textGenerator = async (prompt: string) => {
+    const STS = await SpeechToSpeech.getInstance();
     const TG = await STS.getTextGenerator();
 
     if (TG) {
+        let generatedText = "";
         const messages = [
             { role: "system", content: "You are a helpful assistant." },
             { role: "user", content: prompt },
         ];
 
-        const output = await TG(messages, {
+        const streamer = new TextStreamer(TG.tokenizer, {
+            skip_prompt: true,
+            skip_special_tokens: true,
+            callback_function: (text) => {
+                generatedText += text;
+                postMessage({
+                    type: "TG",
+                    status: "streaming",
+                    data: text,
+                });
+            },
+        });
+
+        await TG(messages, {
             max_new_tokens: 1024,
             do_sample: false,
             add_special_tokens: false,
+            streamer,
         });
 
-        sendMessage({
-            type: "TTT",
-            status: "ended",
-            data: output[0]["generated_text"][2]["content"],
+        postMessage({
+            type: "TG",
+            status: "done",
+            data: "",
         });
+
+        postMessage({
+            type: "TG",
+            status: "ready",
+            data: "",
+        });
+
+        return generatedText;
     }
+
+    if (STS.getTextGeneratorModelLoadingStatus()?.status !== "ready") {
+        postMessage({
+            type: "TG",
+            status: "error",
+            data: "TG model not ready",
+        });
+
+        return Promise.reject("TG model not ready");
+    }
+
+    postMessage({
+        type: "TG",
+        status: "error",
+        data: "TG model error",
+    });
+
+    return Promise.reject("TG model error");
 };
 
 const textToSpeech = async (text: string) => {
-    const STS = new SpeechToSpeech();
+    const STS = await SpeechToSpeech.getInstance();
     const TTS = await STS.getTextToSpeechGenerator();
 
     if (TTS) {
+        /** Kokoro TTS can process only 510 tokens in a single pass,
+         * so we use splitter to split long text input
+         */
         const splitter = new TextSplitterStream();
         splitter.push(text);
         splitter.close();
 
-        const stream = TTS.stream(splitter);
-
         let i = 0;
-        for await (const { audio } of stream) {
-            const status = i === 0 ? "start" : "speaking";
-            sendMessage({
-                type: "TTS",
-                status,
-                data: audio.toBlob(),
-            });
+        let audio: null | RawAudio;
+        for await ({ audio } of TTS.stream(splitter)) {
+            const audioBuffer = audio.toWav();
+            postMessage(
+                {
+                    type: "TTS",
+                    status: "streaming",
+                    data: {
+                        part: i,
+                        data: audioBuffer,
+                    },
+                },
+                {
+                    /** Use transferable object for transfering data efficiently */
+                    transfer: [audioBuffer],
+                }
+            );
+            /** Workaround to avoid memory leak in AsyncIterator */
+            audio = null;
             i++;
         }
 
-        sendMessage({
+        postMessage({
             type: "TTS",
-            status: "ended",
+            status: "done",
             data: "",
         });
+
+        postMessage({
+            type: "TTS",
+            status: "ready",
+            data: "",
+        });
+
+        return Promise.resolve(true);
     }
+
+    if (STS.getTextToSpeechModelLoadingStatus()?.status !== "ready") {
+        postMessage({
+            type: "TTS",
+            status: "error",
+            data: "TG model not ready",
+        });
+
+        return Promise.reject("TTS model not ready");
+    }
+
+    postMessage({
+        type: "TTS",
+        status: "error",
+        data: "TTS model error",
+    });
+
+    return Promise.reject("TTS model error");
 };
 
 const speechToSpeech = async (audioInput: AudioPipelineInputs) => {
-    const STS = new SpeechToSpeech();
+    try {
+        let STS = await SpeechToSpeech.getInstance();
+        let STT = await STS.getSpeechToTextGenerator();
+        let TG = await STS.getTextGenerator();
+        let TTS = await STS.getTextToSpeechGenerator();
 
-    STS.setProgressCallback("STT", (info) => {
-        STS.setSpeechToTextModelLoadingStatus(info);
-        console.log("STT loading status:", info);
-    });
+        if (!STT || !TG || !TTS) {
+            postMessage({
+                type: "STS",
+                status: "error",
+                data: "Model not ready",
+            });
+            throw new Error("Model not ready");
+        }
 
-    const STT = await STS.getSpeechToTextGenerator();
-    const TG = await STS.getTextGenerator();
-    const TTS = await STS.getTextToSpeechGenerator();
-
-    if (!STT || !TG || !TTS) return;
-
-    const prompt = await STT(audioInput, { language: "en" });
-    console.log(prompt);
-
-    const messages = [
-        {
-            role: "system",
-            content:
-                "You are a helpful assistant. Do not use special character.",
-        },
-        { role: "user", content: JSON.stringify(prompt) },
-    ];
-
-    /** Prepare for TTS */
-    const splitter = new TextSplitterStream();
-
-    /** Use stream for pushing text generated from TG to text splitter */
-    const streamer = new TextStreamer(TG.tokenizer, {
-        skip_prompt: true,
-        skip_special_tokens: true,
-        callback_function: (text) => {
-            splitter.push(text);
-        },
-    });
-
-    const output = await TG(messages, {
-        max_new_tokens: 1024,
-        do_sample: false,
-        add_special_tokens: false,
-        streamer,
-    });
-    console.log(output[0]["generated_text"][2]["content"]);
-
-    /** No more token will be generated */
-    splitter.close();
-
-    const stream = TTS.stream(splitter);
-
-    let i = 0;
-    for await (const { audio } of stream) {
-        const status = i === 0 ? "start" : "speaking";
-        sendMessage({
-            type: "STS",
-            status,
-            data: audio.toBlob(),
+        /** STT */
+        const prompt = await STT(audioInput, { language: "en" });
+        postMessage({
+            type: "STT",
+            status: "ready",
+            data: JSON.stringify(prompt),
         });
-        i++;
-    }
 
-    sendMessage({
-        type: "STS",
-        status: "ended",
-        data: "",
+        /** TG */
+        let generatedText = "";
+        const messages = [
+            {
+                role: "system",
+                content:
+                    "You are a helpful assistant. Do not use special character. Do not use * character",
+            },
+            { role: "user", content: JSON.stringify(prompt) },
+        ];
+
+        /** Kokoro TTS can process only 510 tokens in a single pass,
+         * so we use splitter to split long text input
+         */
+        const splitter = new TextSplitterStream();
+        const streamer = new TextStreamer(TG.tokenizer, {
+            skip_prompt: true,
+            skip_special_tokens: true,
+            callback_function: (text) => {
+                generatedText += text;
+                splitter.push(text);
+            },
+        });
+
+        await TG(messages, {
+            max_new_tokens: 512,
+            do_sample: false,
+            add_special_tokens: false,
+            streamer,
+        });
+
+        postMessage({
+            type: "TG",
+            status: "ready",
+            data: generatedText,
+        });
+
+        /** STT */
+        splitter.close();
+
+        let i = 0;
+        let audio: null | RawAudio;
+        for await ({ audio } of TTS.stream(splitter)) {
+            const audioBuffer = audio.toWav();
+            postMessage(
+                {
+                    type: "TTS",
+                    status: "streaming",
+                    data: {
+                        part: i,
+                        data: audioBuffer,
+                    },
+                },
+                {
+                    /** Use transferable object for transfering data efficiently */
+                    transfer: [audioBuffer],
+                }
+            );
+            /** Workaround to avoid memory leak in AsyncIterator */
+            audio = null;
+            i++;
+        }
+
+        postMessage({
+            type: "STS",
+            status: "ready",
+            data: "",
+        });
+    } catch (error) {
+        console.log(error);
+    }
+};
+
+const dispose = async (modelType: ModelType) => {
+    const STS = await SpeechToSpeech.getInstance();
+    await STS.disposeModel(modelType);
+    postMessage({
+        type: "DISPOSE",
+        status: "disposed",
     });
 };
