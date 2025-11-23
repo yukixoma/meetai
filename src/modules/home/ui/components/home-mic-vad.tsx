@@ -4,121 +4,151 @@ import { Button } from "@/components/ui/button";
 
 import { Check, LoaderCircle, Phone } from "lucide-react";
 
-import { cn } from "@/lib/utils";
-
 import { MicVAD } from "@ricky0123/vad-web";
 
-import { InferenceMessage, Message } from "@/workers/talk-with-ai-worker";
-import { ProgressInfo } from "@huggingface/transformers";
+import {
+    InferenceMessage,
+    InitMessage,
+    Message,
+} from "@/workers/talk-with-ai-worker";
 
 interface HomeMicVadProps {
-    modelStatus: ProgressInfo;
-    setModelStatus: (modelStatus: ProgressInfo) => void;
-    inferenceStatus: InferenceMessage["status"];
-    setInferenceStatus: (inferenceStatus: InferenceMessage["status"]) => void;
+    setModelStatus: (modelStatus: InitMessage) => void;
+    inferenceStatus?: InferenceMessage;
+    setInferenceStatus: (inferenceStatus: InferenceMessage) => void;
+    isPlaying: boolean;
     postMessage: (message: Message) => void;
 }
 
 export const HomeMicVad = ({
+    setModelStatus,
     inferenceStatus,
     setInferenceStatus,
-    setModelStatus,
+    isPlaying,
     postMessage,
 }: HomeMicVadProps) => {
-    const myVAD = useRef<MicVAD | null>(null);
+    const myVAD = useRef<MicVAD>(null);
 
     useEffect(() => {
         if (myVAD.current === null) {
             MicVAD.new({
                 onnxWASMBasePath:
-                    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.0/dist/",
+                    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/",
                 baseAssetPath:
                     "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/",
                 startOnLoad: false,
-                onSpeechRealStart: () => {
-                    setInferenceStatus("streaming");
-                },
                 onSpeechEnd: (audio) => {
-                    setInferenceStatus("inferencing");
                     myVAD.current?.pause();
+
                     postMessage({
-                        type: "STS",
+                        type: "INFERENCE",
+                        modelType: "STS",
                         status: "ready",
                         data: audio,
+                    });
+
+                    setInferenceStatus({
+                        type: "INFERENCE",
+                        modelType: "VAD",
+                        status: "ready",
+                        data: "",
                     });
                 },
             }).then((micVad) => {
                 myVAD.current = micVad;
+
                 setModelStatus({
-                    status: "ready",
-                    task: "VAD",
-                    model: "VAD",
+                    type: "INIT",
+                    modelType: "VAD",
+                    data: {
+                        status: "ready",
+                        task: "init",
+                        model: "VAD",
+                    },
                 });
-                setInferenceStatus("ready");
+
+                setInferenceStatus({
+                    type: "INFERENCE",
+                    modelType: "VAD",
+                    status: "ready",
+                    data: "",
+                });
             });
         }
 
         return () => {
+            if (myVAD.current instanceof MicVAD) {
+                try {
+                    myVAD.current.destroy();
+                } catch (error) {}
+            }
             myVAD.current = null;
         };
     }, []);
 
-    const inferenceStatusMapRender = () => {
-        switch (inferenceStatus) {
-            case "streaming":
-                return (
-                    <div className="flex flex-row gap-x-2 items-center justify-center text-cyan-300">
-                        <Phone className="animate-bounce" />
-                        Streaming
-                    </div>
-                );
+    const onStartVAD = () => {
+        myVAD.current?.start();
+        setInferenceStatus({
+            type: "INFERENCE",
+            modelType: "VAD",
+            status: "streaming",
+            data: "",
+        });
+    };
 
-            case "done":
-                return (
-                    <div className="flex flex-row gap-x-2 items-center justify-center text-cyan-300">
-                        <Phone className="animate-bounce" />
-                        Streaming
-                    </div>
-                );
+    if (!inferenceStatus) {
+        return (
+            <>
+                <div className="flex flex-row gap-x-2 items-center justify-center capitalize text-amber-300">
+                    <LoaderCircle className="animate-spin" />
+                    Loading VAD model
+                </div>
+                <Button disabled>Click here to start talking</Button>
+            </>
+        );
+    }
 
-            case "inferencing":
-                return (
+    switch (inferenceStatus.status) {
+        case "inferencing":
+            return (
+                <>
                     <div className="flex flex-row gap-x-2 items-center justify-center capitalize text-amber-300">
                         <LoaderCircle className="animate-spin" />
                         Inferencing
                     </div>
-                );
+                    <Button disabled>Click here to start talking</Button>
+                </>
+            );
 
-            case "ready":
-                return (
-                    <div className="flex flex-row gap-x-2 items-center justify-center capitalize text-green-300">
+        case "streaming":
+            return (
+                <>
+                    <div className="flex flex-row gap-x-2 items-center justify-center text-cyan-300">
+                        <Phone className="animate-bounce" />
+                        Streaming
+                    </div>
+                    <Button disabled>Click here to start talking</Button>
+                </>
+            );
+
+        case "ready":
+            return (
+                <>
+                    <div className="flex flex-row gap-x-1 items-center justify-center capitalize text-green-300">
                         <Check className="animate-pulse" />
                         Ready
                     </div>
-                );
-        }
-    };
-
-    return (
-        <>
-            {inferenceStatusMapRender()}
-            <Button
-                disabled={myVAD.current !== null && inferenceStatus !== "ready"}
-                onClick={() => {
-                    setInferenceStatus("streaming");
-                    myVAD.current?.start();
-                }}
-                className={cn(myVAD.current === null && "bg-amber-300")}
-            >
-                {myVAD.current === null ? (
-                    <>
-                        <LoaderCircle className="animate-spin" />
-                        Loading VAD model
-                    </>
-                ) : (
-                    "Click here to start talking"
-                )}
-            </Button>
-        </>
-    );
+                    <Button
+                        disabled={
+                            inferenceStatus.status !== "ready" ||
+                            inferenceStatus.modelType !== "VAD" ||
+                            isPlaying
+                        }
+                        onClick={onStartVAD}
+                    >
+                        Click here to start talking
+                    </Button>
+                </>
+            );
+    }
 };

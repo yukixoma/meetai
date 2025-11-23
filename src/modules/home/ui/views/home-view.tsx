@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useEffectEvent,
+    useRef,
+    useState,
+} from "react";
 
 import { Bitcount_Single } from "next/font/google";
 
@@ -11,11 +17,13 @@ import { LoaderCircle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-import { ProgressInfo } from "@huggingface/transformers";
+import { ModelType } from "@/onnx/configs";
 
-import { ModelType } from "@/transformers-js/configs";
-
-import { InferenceMessage, Message } from "@/workers/talk-with-ai-worker";
+import {
+    InferenceMessage,
+    InitMessage,
+    Message,
+} from "@/workers/talk-with-ai-worker";
 
 import { HomeMicVad } from "../components/home-mic-vad";
 import { HomeAudioVisualizer } from "../components/home-audio-visualizer";
@@ -27,59 +35,68 @@ const bitcountSingle = Bitcount_Single({
 export const HomeView = () => {
     const talkWithAIWorker = useRef<Worker>(null);
 
-    const [inferenceStatus, setInferenceStatus] =
-        useState<InferenceMessage["status"]>("initiate");
+    const [modelStatus, setModelStatus] = useState<InitMessage>();
 
-    const [modelStatus, setModelStatus] = useState<ProgressInfo>({
-        status: "initiate",
-        file: "",
-        name: "",
-    });
+    const [inferenceStatus, setInferenceStatus] = useState<InferenceMessage>();
 
     const audioBlobArrayRef = useRef<Blob[]>([]);
-    const [audioBlob, setAudioBlob] = useState<{
-        part: number;
-        data: Blob;
-    }>();
+    const [audioBlob, setAudioBlob] = useState<Blob>();
+    const [isPlaying, setIsPlaying] = useState(false);
 
     const onMessage = useEffectEvent((e: MessageEvent) => {
         const message = e.data as Message;
 
         switch (message.type) {
             case "INIT":
-                setModelStatus(message.data as ProgressInfo);
+                setModelStatus(message);
                 break;
+            case "INFERENCE":
+                setInferenceStatus(message);
 
-            case "STT":
-                console.log("STT: ", message);
-                break;
+                switch (message.modelType) {
+                    case "TTS":
+                        if (message.status === "streaming") {
+                            const { part, data } = message.data as {
+                                part: number;
+                                data: ArrayBuffer;
+                            };
 
-            case "TG":
-                console.log("TG: ", message.data);
-                break;
+                            const blob = new Blob([data], {
+                                type: "audio/wav",
+                            });
 
-            case "TTS":
-                console.log("TTS: ", message);
-                if (message.status === "streaming") {
-                    const { part, data } = message.data as {
-                        part: number;
-                        data: ArrayBuffer;
-                    };
-                    audioBlobArrayRef.current[part] = new Blob([data], {
-                        type: "audio/wav",
-                    });
-                    if (part === 0) {
-                        getAudioBlob(0);
-                    }
+                            if (part === 0) {
+                                setAudioBlob(blob);
+                            } else {
+                                audioBlobArrayRef.current.push(blob);
+                            }
+                        }
+
+                        break;
+
+                    case "STS":
+                        setInferenceStatus({
+                            type: "INFERENCE",
+                            modelType: "VAD",
+                            status: "ready",
+                            data: "",
+                        });
+                        break;
                 }
-                break;
-
-            case "STS":
-                console.log("STS: ", message);
-                setInferenceStatus(message.status);
-                break;
         }
     });
+
+    const playAudio = () => {
+        const audioBlob = audioBlobArrayRef.current.shift();
+        if (audioBlob) {
+            const audio = new Audio(URL.createObjectURL(audioBlob));
+            audio.onended = () => {
+                URL.revokeObjectURL(audio.src);
+                playAudio();
+            };
+            audio.play();
+        }
+    };
 
     useEffect(() => {
         if (talkWithAIWorker.current === null) {
@@ -94,7 +111,10 @@ export const HomeView = () => {
         }
 
         return () => {
-            postMessage({ type: "DISPOSE", status: "disposed" });
+            talkWithAIWorker.current?.postMessage({
+                type: "DISPOSE",
+                status: "disposed",
+            });
             talkWithAIWorker.current?.terminate();
             talkWithAIWorker.current = null;
         };
@@ -107,140 +127,139 @@ export const HomeView = () => {
     const onInitModel = (modelType: ModelType) => {
         postMessage({
             type: "INIT",
-            status: "initiate",
-            data: modelType,
+            modelType: modelType,
         });
     };
 
-    const getAudioBlob = (part: number) => {
-        const blob = audioBlobArrayRef.current[part];
+    const getAudioBlob = useCallback(() => {
+        const audioBlob = audioBlobArrayRef.current.shift();
 
-        if (blob) {
-            setAudioBlob({
-                part: part,
-                data: blob,
-            });
+        if (audioBlob) {
+            setIsPlaying(true);
+            setAudioBlob(audioBlob);
+        } else if (inferenceStatus?.status !== "ready") {
+            setTimeout(() => {
+                getAudioBlob();
+            }, 50);
         } else {
-            audioBlobArrayRef.current = [];
             setAudioBlob(undefined);
+            setIsPlaying(false);
         }
-    };
+    }, [inferenceStatus]);
 
     const modelStatusMapRender = () => {
-        switch (modelStatus.status) {
-            case "initiate":
-                return (
-                    <>
-                        <div
-                            className={cn("text-2xl", bitcountSingle.className)}
-                        >
-                            Welcome to Talk.AI
-                        </div>
-                        <div className="flex flex-col h-20 items-center justify-center">
-                            Click load model button to begin
-                        </div>
-                        <Button onClick={() => onInitModel("STS")}>
-                            Load model
-                        </Button>
-                    </>
-                );
+        if (!modelStatus?.data) {
+            return (
+                <>
+                    <div className={cn("text-2xl", bitcountSingle.className)}>
+                        Welcome to Talk.AI
+                    </div>
+                    <div className="flex flex-col h-20 items-center justify-center">
+                        Click load model button to begin
+                    </div>
+                    <Button onClick={() => onInitModel("STS")}>
+                        Load model
+                    </Button>
+                </>
+            );
+        }
 
-            case "download":
-                return (
-                    <>
-                        <div
-                            className={cn("text-2xl", bitcountSingle.className)}
-                        >
-                            Downloading model
-                        </div>
-                        <div className="flex flex-col h-20 items-center justify-center">
-                            <div>
-                                {`Downloading ${modelStatus.name}/${modelStatus.file}`}
-                            </div>
-                            <Button disabled={true}>
-                                <LoaderCircle className="animate-spin" />
-                                Downloading model
-                            </Button>
-                        </div>
-                    </>
-                );
+        const { modelType, data } = modelStatus;
 
-            case "progress":
-                return (
-                    <>
-                        <div
-                            className={cn("text-2xl", bitcountSingle.className)}
-                        >
-                            Loading model
-                        </div>
-                        <div className="flex flex-col h-20 items-center justify-center">
-                            <div>
-                                {`Loading ${modelStatus.name}/${modelStatus.file}`}
-                            </div>
-                            <div>{`${modelStatus.progress.toFixed(2)}%`}</div>
-                            <Progress {...{ value: modelStatus.progress }} />
-                        </div>
-                        <Button disabled={true} className="bg-amber-300">
-                            <LoaderCircle className="animate-spin" />
-                            Loading model
-                        </Button>
-                    </>
-                );
+        if (modelType !== "STS" && modelType !== "VAD") {
+            let title = "";
+            let subtitle = "";
+            let textColor = "";
+            let progress = 0;
+            if (data.status !== "ready") {
+                const { file, name } = data;
+                subtitle = `${name}/${file}`;
+                switch (data.status) {
+                    case "initiate":
+                        title = `Initiating model ${name}`;
+                        subtitle = `Preparing to download ${name}/${file}`;
 
-            case "done":
-                return (
-                    <>
-                        <div
-                            className={cn("text-2xl", bitcountSingle.className)}
-                        >
-                            Loaded model
-                        </div>
-                        <div className="flex flex-col h-20 items-center justify-center">
-                            <div>
-                                {`Loaded ${modelStatus.name}/${modelStatus.file}`}
-                            </div>
-                        </div>
-                        <Button disabled={true} className="bg-cyan-300">
-                            <LoaderCircle className="animate-spin" />
-                            Waiting for another models
-                        </Button>
-                    </>
-                );
+                        break;
 
-            case "ready":
-                if (
-                    modelStatus.model === "STS" ||
-                    modelStatus.model === "VAD"
-                ) {
-                    return (
-                        <>
-                            <div
-                                className={cn(
-                                    "text-2xl",
-                                    bitcountSingle.className
-                                )}
-                            >
-                                Talk.AI is ready
-                            </div>
-                            <HomeAudioVisualizer
-                                {...{
-                                    inferenceStatus,
-                                    audioBlob,
-                                    getAudioBlob,
-                                }}
-                            />
-                            <HomeMicVad
-                                {...{
-                                    modelStatus,
-                                    setModelStatus,
-                                    inferenceStatus,
-                                    setInferenceStatus,
-                                    postMessage,
-                                }}
-                            />
-                        </>
-                    );
+                    case "download":
+                        title = `Downloading model ${name}`;
+                        subtitle = `Downloading ${name}/${file}`;
+                        textColor = "text-amber-300";
+                        break;
+
+                    case "progress":
+                        title = `Processing model ${name}`;
+                        progress = data.progress;
+                        subtitle = `Processing ${name}/${file} (${progress.toFixed(
+                            2
+                        )} %)`;
+                        textColor = "text-amber-300";
+                        break;
+
+                    case "done":
+                        title = `Loaded model ${name}`;
+                        subtitle = "Finalizing";
+                        textColor = "text-cyan-300";
+                        progress = 100;
+                        break;
                 }
+            } else {
+                title = `Model ${data.model} is ready`;
+                subtitle = "Waiting for other models";
+                textColor = "text-green-300";
+                progress = 100;
+            }
+
+            return (
+                <>
+                    <div className={cn("text-2xl", bitcountSingle.className)}>
+                        {title}
+                    </div>
+                    <div className="flex flex-col h-20 items-center justify-center">
+                        <div
+                            className={cn(
+                                "flex flex-row gap-x-1 h-10",
+                                textColor
+                            )}
+                        >
+                            <LoaderCircle className="animate-spin" />
+                            {subtitle}
+                        </div>
+                        <div className="flex flex-col w-3xs items-center justify-center">
+                            <Progress {...{ value: progress }} />
+                        </div>
+                    </div>
+                    <Button disabled>Loading model</Button>
+                </>
+            );
+        }
+
+        if (modelType === "STS" || modelType === "VAD") {
+            return (
+                <>
+                    <div className={cn("text-2xl", bitcountSingle.className)}>
+                        Talk.AI is ready
+                    </div>
+                    <HomeAudioVisualizer
+                        {...{
+                            inferenceStatus,
+                            audioBlob,
+                            getAudioBlob,
+                            setIsPlaying,
+                        }}
+                    />
+                    <HomeMicVad
+                        {...{
+                            modelStatus,
+                            setModelStatus,
+                            inferenceStatus,
+                            setInferenceStatus,
+                            isPlaying,
+                            postMessage,
+                        }}
+                    />
+                </>
+            );
         }
     };
 

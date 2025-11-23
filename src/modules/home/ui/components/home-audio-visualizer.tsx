@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { RefObject, useEffect, useRef, useState } from "react";
 
 import { LiveAudioVisualizer } from "@tecsinapse/react-audio-visualize";
 
@@ -10,74 +10,79 @@ interface HTMLAudioElementExtended extends HTMLAudioElement {
 }
 
 interface HomeAudioVisualizerProps {
-    inferenceStatus: InferenceMessage["status"];
-    audioBlob?: { part: number; data: Blob };
-    getAudioBlob: (part: number) => void;
+    inferenceStatus?: InferenceMessage;
+    audioBlob?: Blob;
+    getAudioBlob: () => void;
+    setIsPlaying: (isPlaying: boolean) => void;
 }
 
 export const HomeAudioVisualizer = ({
     inferenceStatus,
     audioBlob,
     getAudioBlob,
+    setIsPlaying,
 }: HomeAudioVisualizerProps) => {
-    const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(
-        null
-    );
-    const audioBlobPartRef = useRef<number>(null);
+    const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder>();
 
     useEffect(() => {
-        if (audioBlob === undefined) {
+        if (!inferenceStatus) {
+            return;
+        }
+        const { status, modelType } = inferenceStatus;
+        if (status === "streaming" && modelType === "VAD") {
             navigator.mediaDevices
                 .getUserMedia({ audio: true })
                 .then((stream) => {
-                    const newMediaRecorder = new MediaRecorder(stream);
-                    if (inferenceStatus === "streaming") {
-                        newMediaRecorder.start();
-                    }
-                    setMediaRecorder(newMediaRecorder);
+                    const mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+                    setMediaRecorder(mediaRecorder);
                 });
-        }
-        return () => {
+        } else if (!audioBlob) {
             mediaRecorder?.stop();
-            setMediaRecorder(null);
-        };
-    }, [inferenceStatus]);
+        }
+    }, [inferenceStatus, audioBlob]);
 
     useEffect(() => {
-        if (
-            audioBlob !== undefined &&
-            audioBlob.part !== audioBlobPartRef.current
-        ) {
-            audioBlobPartRef.current = audioBlob.part;
+        if (audioBlob) {
+            mediaRecorder?.stop();
 
             const audio = new Audio() as HTMLAudioElementExtended;
-            audio.src = URL.createObjectURL(audioBlob.data);
-            audio.onended = () => {
-                setMediaRecorder(null);
-                getAudioBlob(audioBlob.part + 1);
+            audio.src = URL.createObjectURL(audioBlob);
+
+            audio.onplaying = () => {
+                setIsPlaying(true);
+
+                let stream;
+                if (audio.captureStream) {
+                    stream = audio.captureStream();
+                } else if (audio.mozCaptureStream) {
+                    stream = audio.mozCaptureStream();
+                }
+                if (stream) {
+                    const mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+                    setMediaRecorder(mediaRecorder);
+                }
             };
 
-            audio.play().then(() => {
-                const stream =
-                    audio.captureStream?.() ?? audio.mozCaptureStream?.();
-                if (stream) {
-                    const newMediaRecorder = new MediaRecorder(stream);
-                    newMediaRecorder.start();
-                    setMediaRecorder(newMediaRecorder);
-                }
-            });
-        }
+            audio.onended = () => {
+                URL.revokeObjectURL(audio.src);
+                mediaRecorder?.stop();
+                setIsPlaying(false);
+                getAudioBlob();
+            };
 
+            audio.play();
+        }
         return () => {
-            audioBlobPartRef.current = null;
             mediaRecorder?.stop();
-            setMediaRecorder(null);
+            setMediaRecorder(undefined);
         };
     }, [audioBlob]);
 
     return (
         <div className="flex flex-col h-20 items-center justify-center">
-            {mediaRecorder !== null && (
+            {mediaRecorder && (
                 <LiveAudioVisualizer
                     mediaRecorder={mediaRecorder}
                     width={200}
