@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 
-import { Check, LoaderCircle, Phone } from "lucide-react";
+import { Check, LoaderCircle, Phone, X } from "lucide-react";
 
 import { MicVAD } from "@ricky0123/vad-web";
 
@@ -35,7 +35,7 @@ export const HomeMicVad = ({
                 onnxWASMBasePath:
                     "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/",
                 baseAssetPath:
-                    "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/",
+                    "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/",
                 startOnLoad: false,
                 onSpeechEnd: (audio) => {
                     myVAD.current?.pause();
@@ -114,7 +114,7 @@ export const HomeMicVad = ({
                 <>
                     <div className="flex flex-row gap-x-2 items-center justify-center capitalize text-amber-300">
                         <LoaderCircle className="animate-spin" />
-                        Inferencing
+                        Inferencing ({inferenceStatus.modelType})
                     </div>
                     <Button disabled>Click here to start talking</Button>
                 </>
@@ -125,7 +125,7 @@ export const HomeMicVad = ({
                 <>
                     <div className="flex flex-row gap-x-2 items-center justify-center text-cyan-300">
                         <Phone className="animate-bounce" />
-                        Streaming
+                        Streaming ({inferenceStatus.modelType})
                     </div>
                     <Button disabled>Click here to start talking</Button>
                 </>
@@ -147,6 +147,23 @@ export const HomeMicVad = ({
                         onClick={onStartVAD}
                     >
                         Click here to start talking
+                    </Button>
+                </>
+            );
+
+        case "error":
+            return (
+                <>
+                    <div className="flex flex-row gap-x-1 items-center justify-center capitalize text-green-300">
+                        <X className="animate-pulse" />
+                        Error
+                    </div>
+                    <Button
+                        onClick={() => {
+                            window.location.reload();
+                        }}
+                    >
+                        Reload page
                     </Button>
                 </>
             );

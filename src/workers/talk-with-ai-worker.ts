@@ -82,7 +82,7 @@ self.onmessage = async (event) => {
             break;
 
         case "DISPOSE":
-            await dispose(payload.data as ModelType);
+            await dispose(payload.modelType);
             break;
     }
 };
@@ -93,7 +93,7 @@ const postMessage = (messages: Message, options?: WindowPostMessageOptions) => {
 
 const initModel = async (modelType: ModelType) => {
     switch (modelType) {
-        case "STT":
+        case "STT": {
             const stt = await SpeechToText.getInstance();
             stt.setProgressCallback((info) => {
                 postMessage({
@@ -104,8 +104,9 @@ const initModel = async (modelType: ModelType) => {
             });
             await stt.getTranscriber();
             break;
+        }
 
-        case "TG":
+        case "TG": {
             const tg = await TextGeneration.getInstance();
             tg.setProgressCallback((info) => {
                 postMessage({
@@ -116,8 +117,9 @@ const initModel = async (modelType: ModelType) => {
             });
             await tg.getGenerator();
             break;
+        }
 
-        case "TTS":
+        case "TTS": {
             const tts = await TextToSpeech.getInstance();
             tts.setProgressCallback((info) => {
                 postMessage({
@@ -128,8 +130,9 @@ const initModel = async (modelType: ModelType) => {
             });
             await tts.getSpeaker();
             break;
+        }
 
-        case "STS":
+        case "STS": {
             await initModel("STT");
             await initModel("TG");
             await initModel("TTS");
@@ -143,6 +146,7 @@ const initModel = async (modelType: ModelType) => {
                 },
             });
             break;
+        }
     }
 };
 
@@ -153,7 +157,7 @@ const speechToText = async (
     try {
         postMessage({
             type: "INFERENCE",
-            modelType: "TG",
+            modelType: "STT",
             status: "inferencing",
             data: "",
         });
@@ -286,7 +290,7 @@ const kokoroTextToSpeech = async (text: string | TextSplitterStream) => {
     try {
         postMessage({
             type: "INFERENCE",
-            modelType: "TG",
+            modelType: "TTS",
             status: "inferencing",
             data: "",
         });
@@ -342,7 +346,7 @@ const kokoroTextToSpeech = async (text: string | TextSplitterStream) => {
         } else {
             postMessage({
                 type: "INFERENCE",
-                modelType: "TG",
+                modelType: "TTS",
                 status: "error",
                 data: "TTS model not ready",
             });
@@ -365,7 +369,7 @@ const piperTextToSpeech = async (text: string | TextSplitterStream) => {
     try {
         postMessage({
             type: "INFERENCE",
-            modelType: "TG",
+            modelType: "TTS",
             status: "inferencing",
             data: "",
         });
@@ -420,7 +424,7 @@ const piperTextToSpeech = async (text: string | TextSplitterStream) => {
         } else {
             postMessage({
                 type: "INFERENCE",
-                modelType: "TG",
+                modelType: "TTS",
                 status: "error",
                 data: "TTS model not ready",
             });
@@ -443,7 +447,7 @@ const textToSpeech = async (text: string | TextSplitterStream) => {
     try {
         postMessage({
             type: "INFERENCE",
-            modelType: "TG",
+            modelType: "TTS",
             status: "inferencing",
             data: "",
         });
@@ -489,11 +493,18 @@ const textToSpeech = async (text: string | TextSplitterStream) => {
             }
 
             splitter = null;
+            postMessage({
+                type: "INFERENCE",
+                modelType: "TTS",
+                status: "ready",
+                data: "TTS completed",
+            });
+
             return Promise.resolve("TTS completed");
         } else {
             postMessage({
                 type: "INFERENCE",
-                modelType: "TG",
+                modelType: "TTS",
                 status: "error",
                 data: "TTS model not ready",
             });
@@ -544,26 +555,30 @@ const speechToSpeech = async (audioInput: AudioPipelineInputs) => {
 
 const dispose = async (modelType: ModelType) => {
     switch (modelType) {
-        case "STT":
+        case "STT": {
             const stt = await SpeechToText.getInstance();
             await stt.dispose();
             break;
+        }
 
-        case "TG":
+        case "TG": {
             const tg = await TextGeneration.getInstance();
             await tg.dispose();
             break;
+        }
 
-        case "TTS":
+        case "TTS": {
             const tts = await KokoroTextToSpeech.getInstance();
             await tts.dispose();
             break;
+        }
 
-        case "STS":
+        case "STS": {
             await dispose("STT");
             await dispose("TG");
             await dispose("TTS");
             break;
+        }
     }
 
     postMessage({
