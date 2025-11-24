@@ -13,9 +13,6 @@ import type { ModelConfigs } from "@/onnx/configs";
 
 import { checkWebGPUSupport } from "@/onnx/utils";
 
-/**
- * Speech to text singleton class
- */
 export class SpeechToText {
     private static instance: null | SpeechToText = null;
     private isWebGPUSupport = false;

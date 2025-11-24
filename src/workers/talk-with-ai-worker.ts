@@ -568,7 +568,7 @@ const dispose = async (modelType: ModelType) => {
         }
 
         case "TTS": {
-            const tts = await KokoroTextToSpeech.getInstance();
+            const tts = await TextToSpeech.getInstance();
             await tts.dispose();
             break;
         }
