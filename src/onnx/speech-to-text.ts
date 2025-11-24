@@ -14,7 +14,7 @@ import type { ModelConfigs } from "@/onnx/configs";
 import { checkWebGPUSupport } from "@/onnx/utils";
 
 /**
- * Speech to text sigleton class
+ * Speech to text singleton class
  */
 export class SpeechToText {
     private static instance: null | SpeechToText = null;
@@ -35,9 +35,6 @@ export class SpeechToText {
     ) {
         if (SpeechToText.instance === null) {
             SpeechToText.instance = new SpeechToText(modelID, configs);
-        } else {
-            await SpeechToText.instance.setModelID(modelID);
-            await SpeechToText.instance.setConfigs(configs);
         }
         SpeechToText.instance.isWebGPUSupport = await checkWebGPUSupport();
 

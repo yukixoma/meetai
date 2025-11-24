@@ -226,6 +226,24 @@ export class TextToSpeech {
         return this.speaker;
     }
 
+    public async setModelID(modelID: string = this.modelID) {
+        await this.disposeModel();
+        this.modelID = modelID;
+    }
+
+    public getModelID() {
+        return this.modelID;
+    }
+
+    public async setConfigs(configs: ModelConfigs) {
+        await this.disposeModel();
+        this.configs = configs;
+    }
+
+    public getConfigs() {
+        return this.configs;
+    }
+
     public setProgressCallback(
         progressCallback: ModelConfigs["progress_callback"]
     ) {
@@ -240,7 +258,7 @@ export class TextToSpeech {
     }
 
     public async disposeModel() {
-        await this.speaker?.model.dispose();
+        await this.speaker?.dispose();
         this.speaker = null;
         this.status = null;
     }

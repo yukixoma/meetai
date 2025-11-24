@@ -39,6 +39,7 @@ export const HomeView = () => {
 
     const [inferenceStatus, setInferenceStatus] = useState<InferenceMessage>();
 
+    const ttsStreamingStatusRef = useRef<"streaming" | "ready">(null);
     const audioBlobArrayRef = useRef<Blob[]>([]);
     const [audioBlob, setAudioBlob] = useState<Blob>();
     const [isPlaying, setIsPlaying] = useState(false);
@@ -50,12 +51,22 @@ export const HomeView = () => {
             case "INIT":
                 setModelStatus(message);
                 break;
-            case "INFERENCE":
+
+            case "INFERENCE": {
                 setInferenceStatus(message);
 
-                switch (message.modelType) {
+                const { status, modelType } = message;
+                switch (modelType) {
+                    case "TG":
+                        if (status === "ready") {
+                            console.log("TG message:", message.data);
+                        }
+                        break;
+
                     case "TTS":
-                        if (message.status === "streaming") {
+                        if (status === "streaming") {
+                            ttsStreamingStatusRef.current = "streaming";
+
                             const { part, data } = message.data as {
                                 part: number;
                                 data: ArrayBuffer;
@@ -72,6 +83,10 @@ export const HomeView = () => {
                             }
                         }
 
+                        if (status === "ready") {
+                            ttsStreamingStatusRef.current = "ready";
+                        }
+
                         break;
 
                     case "STS":
@@ -83,20 +98,10 @@ export const HomeView = () => {
                         });
                         break;
                 }
+                break;
+            }
         }
     });
-
-    const playAudio = () => {
-        const audioBlob = audioBlobArrayRef.current.shift();
-        if (audioBlob) {
-            const audio = new Audio(URL.createObjectURL(audioBlob));
-            audio.onended = () => {
-                URL.revokeObjectURL(audio.src);
-                playAudio();
-            };
-            audio.play();
-        }
-    };
 
     useEffect(() => {
         if (talkWithAIWorker.current === null) {
@@ -131,21 +136,21 @@ export const HomeView = () => {
         });
     };
 
-    const getAudioBlob = useCallback(() => {
+    const getAudioBlob = () => {
         const audioBlob = audioBlobArrayRef.current.shift();
 
         if (audioBlob) {
             setIsPlaying(true);
             setAudioBlob(audioBlob);
-        } else if (inferenceStatus?.status !== "ready") {
+        } else if (ttsStreamingStatusRef.current === "streaming") {
             setTimeout(() => {
                 getAudioBlob();
-            }, 50);
+            }, 200);
         } else {
             setAudioBlob(undefined);
             setIsPlaying(false);
         }
-    }, [inferenceStatus]);
+    };
 
     const modelStatusMapRender = () => {
         if (!modelStatus?.data) {
@@ -212,7 +217,12 @@ export const HomeView = () => {
 
             return (
                 <>
-                    <div className={cn("text-2xl", bitcountSingle.className)}>
+                    <div
+                        className={cn(
+                            "text-2xl text-center",
+                            bitcountSingle.className
+                        )}
+                    >
                         {title}
                     </div>
                     <div className="flex flex-col h-20 items-center justify-center">

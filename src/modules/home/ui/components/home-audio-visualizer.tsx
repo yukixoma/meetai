@@ -22,6 +22,7 @@ export const HomeAudioVisualizer = ({
     getAudioBlob,
     setIsPlaying,
 }: HomeAudioVisualizerProps) => {
+    const mediaRecorderRef = useRef<MediaRecorder>(null);
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder>();
 
     useEffect(() => {
@@ -34,17 +35,18 @@ export const HomeAudioVisualizer = ({
                 .getUserMedia({ audio: true })
                 .then((stream) => {
                     const mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    setMediaRecorder(mediaRecorder);
+                    mediaRecorderRef.current = mediaRecorder;
+                    mediaRecorderRef.current.start();
+                    setMediaRecorder(mediaRecorderRef.current);
                 });
         } else if (!audioBlob) {
-            mediaRecorder?.stop();
+            mediaRecorderRef.current?.stop();
         }
     }, [inferenceStatus, audioBlob]);
 
     useEffect(() => {
         if (audioBlob) {
-            mediaRecorder?.stop();
+            mediaRecorderRef.current?.stop();
 
             const audio = new Audio() as HTMLAudioElementExtended;
             audio.src = URL.createObjectURL(audioBlob);
@@ -59,15 +61,15 @@ export const HomeAudioVisualizer = ({
                     stream = audio.mozCaptureStream();
                 }
                 if (stream) {
-                    const mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    setMediaRecorder(mediaRecorder);
+                    mediaRecorderRef.current = new MediaRecorder(stream);
+                    mediaRecorderRef.current.start();
+                    setMediaRecorder(mediaRecorderRef.current);
                 }
             };
 
             audio.onended = () => {
                 URL.revokeObjectURL(audio.src);
-                mediaRecorder?.stop();
+                mediaRecorderRef.current?.stop();
                 setIsPlaying(false);
                 getAudioBlob();
             };
@@ -75,7 +77,8 @@ export const HomeAudioVisualizer = ({
             audio.play();
         }
         return () => {
-            mediaRecorder?.stop();
+            mediaRecorderRef.current?.stop();
+            mediaRecorderRef.current = null;
             setMediaRecorder(undefined);
         };
     }, [audioBlob]);
