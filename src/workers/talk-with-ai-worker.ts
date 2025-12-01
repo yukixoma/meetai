@@ -471,7 +471,7 @@ const textToSpeech = async (text: string | TextSplitterStream) => {
                 const audio = (await speaker(clearedSentence, {
                     speaker_embeddings:
                         "https://huggingface.co/onnx-community/Supertonic-TTS-ONNX/resolve/main/voices/F1.bin",
-                    num_inference_steps: 16,
+                    num_inference_steps: 50,
                 })) as RawAudio;
                 const audioBuffer = audio.toWav();
                 postMessage(

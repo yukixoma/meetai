@@ -7,8 +7,6 @@ if (env.backends.onnx.wasm) {
     env.backends.onnx.logLevel = "error";
 }
 
-env.backends.onnx.webgpu?.device;
-
 env.allowLocalModels = true;
 env.localModelPath = "http://localhost:3001/models/";
 
@@ -24,7 +22,7 @@ export interface ModelConfigs {
 /**
  * Default configs for speech to text model
  */
-export const STT_MODEL_ID = "whisper-base";
+export const STT_MODEL_ID = "onnx-community/whisper-base";
 export const STT_CONFIGS: ModelConfigs = {
     dtype: "fp32",
     device: "webgpu",
@@ -33,7 +31,7 @@ export const STT_CONFIGS: ModelConfigs = {
 /**
  * Default configs for text generation model
  */
-export const TEXT_GENERATOR_MODEL_ID = "LFM2-1.2B-ONNX";
+export const TEXT_GENERATOR_MODEL_ID = "onnx-community/LFM2-1.2B-ONNX";
 export const TEXT_GENERATOR_CONFIGS: ModelConfigs = {
     dtype: "q4",
     device: "webgpu",
@@ -42,7 +40,7 @@ export const TEXT_GENERATOR_CONFIGS: ModelConfigs = {
 /**
  * Default configs for text to speech model
  */
-export const TTS_KOKORO_MODEL_ID = "Kokoro-82M-v1.0-ONNX";
+export const TTS_KOKORO_MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
 export const TTS_MODEL_ID = "onnx-community/Supertonic-TTS-ONNX";
 export const TTS_CONFIGS: ModelConfigs = {
     /** Kokoro (WebGPU) only work with fp32 dtype */

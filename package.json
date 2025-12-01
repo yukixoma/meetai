@@ -107,6 +107,7 @@
         "@types/react-dom": "^19.2.3",
         "@types/react-highlight-words": "^0.20.0",
         "@webgpu/types": "^0.1.66",
+        "baseline-browser-mapping": "^2.8.32",
         "drizzle-kit": "^0.31.7",
         "eslint": "^9.39.1",
         "eslint-config-next": "^16.0.3",
